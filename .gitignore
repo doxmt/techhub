@@ -1,0 +1,32 @@
+.claude/settings.local.json
+.claude/logs/
+.DS_Store
+
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build outputs
+.next/
+out/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+.turbo/
+*.tsbuildinfo
+
+# environment
+.env
+.env.*
+!.env.example
+
+# vercel / supabase
+.vercel/
+.branches/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

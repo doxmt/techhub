@@ -1,0 +1,29 @@
+{
+  "name": "techhub",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.32.0",
+  "engines": {
+    "node": ">=20.18.0"
+  },
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "format": "prettier --write .",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "test:e2e": "playwright test",
+    "typecheck": "turbo typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@playwright/test": "latest",
+    "eslint": "latest",
+    "globals": "latest",
+    "prettier": "latest",
+    "turbo": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vitest": "latest"
+  }
+}

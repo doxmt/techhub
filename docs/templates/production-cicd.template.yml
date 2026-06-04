@@ -1,0 +1,166 @@
+# 템플릿: GitHub Actions + Vercel Production CI/CD
+#
+# 사용 방법:
+# 1. 이 파일을 `.github/workflows/production-cicd.yml`로 복사한다.
+# 2. `on.push.branches` 아래의 Production 브랜치를 프로젝트에 맞게 수정한다.
+# 3. GitHub Repository Secrets에 아래 값을 등록한다.
+#    - NEXT_PUBLIC_SUPABASE_URL
+#    - NEXT_PUBLIC_SUPABASE_ANON_KEY
+#    - SUPABASE_SERVICE_ROLE_KEY
+#    - VERCEL_TOKEN
+#    - VERCEL_ORG_ID
+#    - VERCEL_PROJECT_ID
+#
+# 참고:
+# - Production 배포 전에 lint, test, build 검증을 먼저 실행한다.
+# - 검증 단계가 성공해야만 Vercel Production 배포가 실행된다.
+# - Vercel Production 배포에는 `--prod` 옵션을 사용한다.
+
+name: Production CI/CD
+
+on:
+  push:
+    branches:
+      - main # Production 브랜치가 다르면 수정한다.
+
+concurrency:
+  group: production-cicd-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  project-check:
+    name: Lint, test, and build
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20 # 프로젝트에서 다른 Node.js 버전이 필요하면 수정한다.
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate build environment
+        run: |
+          test -n "$NEXT_PUBLIC_SUPABASE_URL"
+          test -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Unit tests
+        run: pnpm run test
+
+      - name: Build
+        run: pnpm run build
+
+  deploy-to-vercel:
+    name: Deploy to Vercel Production
+    runs-on: ubuntu-latest
+    needs: project-check
+    outputs:
+      deploy_url: ${{ steps.deploy.outputs.deploy_url }}
+      current_time: ${{ steps.deploy.outputs.current_time }}
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Vercel environment
+        run: |
+          test -n "$NEXT_PUBLIC_SUPABASE_URL"
+          test -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$VERCEL_ORG_ID"
+          test -n "$VERCEL_PROJECT_ID"
+          test -n "$VERCEL_TOKEN"
+
+      - name: Pull Vercel environment
+        run: pnpm dlx vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build with Vercel
+        run: pnpm dlx vercel@latest build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy prebuilt output
+        id: deploy
+        run: |
+          deploy_url="$(pnpm dlx vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN")"
+          current_time="$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M:%S KST')"
+          echo "deploy_url=$deploy_url" >> "$GITHUB_OUTPUT"
+          echo "current_time=$current_time" >> "$GITHUB_OUTPUT"
+
+  production-comment:
+    name: Comment production URL
+    runs-on: ubuntu-latest
+    needs: deploy-to-vercel
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Comment on pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployUrl = '${{ needs.deploy-to-vercel.outputs.deploy_url }}'
+            const currentTime = '${{ needs.deploy-to-vercel.outputs.current_time }}'
+
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            })
+
+            if (prs.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prs[0].number,
+                body: [
+                  `Production: ${deployUrl}`,
+                  '',
+                  `Update: ${currentTime}`,
+                ].join('\n'),
+              })
+            }
