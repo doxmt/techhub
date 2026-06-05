@@ -51,7 +51,19 @@ export default async function HomePage({ searchParams }: Props) {
                   FE, BE, Cloud, Claude Code, AI Agents 자료를 한 곳에서 탐색합니다.
                 </p>
               </div>
-              <label className="flex min-w-0 items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-500 dark:border-neutral-800">
+              <form
+                action="/"
+                className="flex min-w-0 items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-500 dark:border-neutral-800"
+              >
+                {filters.category && (
+                  <input type="hidden" name="category" value={filters.category} />
+                )}
+                {filters.type && (
+                  <input type="hidden" name="type" value={filters.type} />
+                )}
+                {filters.lang && (
+                  <input type="hidden" name="lang" value={filters.lang} />
+                )}
                 <Search className="size-4 shrink-0" aria-hidden="true" />
                 <input
                   name="q"
@@ -60,7 +72,7 @@ export default async function HomePage({ searchParams }: Props) {
                   type="search"
                   defaultValue={filters.q ?? ""}
                 />
-              </label>
+              </form>
             </div>
           </div>
           <FeedInfiniteScroll

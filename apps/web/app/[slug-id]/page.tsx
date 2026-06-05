@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getContentBySlugId } from "../../features/feed/server/service";
 import { parseSlugId } from "../../lib/slug";
 import { Badge } from "../../components/ui/badge";
@@ -31,7 +31,7 @@ export default async function ContentDetailPage({ params }: Props) {
 
   const canonicalSlugId = `${item.slug}-${item.id}`;
   if (slugId !== canonicalSlugId) {
-    redirect(`/${canonicalSlugId}`);
+    permanentRedirect(`/${canonicalSlugId}`);
   }
 
   const formattedDate = new Intl.DateTimeFormat("ko-KR", {
