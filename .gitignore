@@ -26,7 +26,11 @@ test-results/
 .vercel/
 .branches/
 
+# plans (local working documents)
+docs/plans/
+
 # logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
+.vercel
