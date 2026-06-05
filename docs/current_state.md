@@ -16,20 +16,21 @@
 - 기본 lint/test/typecheck/build/E2E 설정 완료
 - GitHub Actions preview/production CI/CD workflow를 pnpm 기준으로 추가
 - Supabase project 연결 및 migration push (content_items/categories/tags/profiles + RLS + FTS)
-- supabase gen types로 TypeScript 타입 생성
-- @supabase/ssr 기반 브라우저/서버 클라이언트 구성
-- Vercel project 연결 및 GitHub secrets 등록 (CI/CD 정상 동작 확인)
+- supabase gen types로 TypeScript 타입 생성, @supabase/ssr 기반 클라이언트 구성
+- Vercel project 연결 및 GitHub secrets 등록, CI/CD 정상 동작 확인
 
 ## 예정
 
-- 기본 schema, RLS policy, typegen 구성
-- 공개 피드와 관리자 로그인/대시보드 MVP 구현
-- shadcn/ui 실제 컴포넌트 초기화
+- seed 데이터 작성 (카테고리 8종, 콘텐츠 10~20건, draft/null썸네일/긴제목 포함)
+- 피드 서비스 레이어 구현 (apps/web/features/feed/server/service.ts)
+- shadcn/ui 초기화 + 피드 UI 구현 (카드, 검색/필터, 무한 스크롤, 상세 페이지)
+- 공개 피드 실데이터 연동 및 E2E 테스트 갱신
+- 관리자 로그인/대시보드 MVP 구현
 
 ## 참고사항
 
-- `README.md`는 현재 비어 있는 변경 상태다. 사용자가 의도적으로 비웠을 수 있으므로 명시 요청 없이 되돌리지 않는다.
-- CI/CD 템플릿과 실제 workflow는 pnpm 기준으로 수정되어 있다.
-- 일반 사용자는 로그인하지 않는다. MVP에서 로그인은 관리자 전용이다.
-- AI 기능은 schema 확장 가능성만 고려하고 기능으로 구현하지 않는다.
-- Next.js/Turbopack build는 sandbox 포트 제한 때문에 승인된 환경에서 검증해야 한다.
+- `README.md`는 현재 비어 있는 변경 상태다. 명시 요청 없이 되돌리지 않는다.
+- plan 파일: `docs/plans/supabase-feed-mvp.md` — 단계 3(서비스 레이어)~5(UI)가 남아 있다.
+- seed.sql은 현재 비어 있다. 다음 작업에서 채운다.
+- Vercel 프로젝트: songtaehas-projects/techhub, rootDirectory=apps/web, framework=nextjs
+- Supabase 프로젝트 ref: yrsjenpwlqtbrqtdwven
