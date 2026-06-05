@@ -51,7 +51,7 @@ function mapToFeedItem(row: ContentRow): FeedItem {
     type: row.type as ContentType,
     language: row.language ?? "ko",
     slug: row.slug,
-    publishedAt: row.published_at!,
+    publishedAt: row.published_at ?? "",
     categories: (row.content_categories ?? [])
       .map((cc) => cc.categories)
       .filter((c): c is { name: string; slug: string } => c !== null),
