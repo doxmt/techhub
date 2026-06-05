@@ -27,7 +27,7 @@ export type FeedFilters = {
 const PAGE_SIZE = 20;
 
 type RawRow = {
-  id: string;
+  id: number;
   title: string;
   description: string | null;
   thumbnail: string | null;
@@ -35,7 +35,7 @@ type RawRow = {
   type: string;
   language: string | null;
   slug: string;
-  published_at: string;
+  published_at: string | null;
   content_categories: { categories: { name: string; slug: string } | null }[];
   content_tags: { tags: { name: string } | null }[];
 };
@@ -51,7 +51,7 @@ function mapToFeedItem(row: RawRow): FeedItem {
     type: row.type as ContentType,
     language: row.language ?? "ko",
     slug: row.slug,
-    publishedAt: row.published_at,
+    publishedAt: row.published_at ?? "",
     categories: row.content_categories
       .map((cc) => cc.categories)
       .filter((c): c is { name: string; slug: string } => c !== null),
