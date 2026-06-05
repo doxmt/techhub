@@ -15,13 +15,15 @@
 - `apps/web` Next.js 앱과 `packages/shared` 패키지 생성
 - 기본 lint/test/typecheck/build/E2E 설정 완료
 - GitHub Actions preview/production CI/CD workflow를 pnpm 기준으로 추가
+- Supabase project 연결 및 migration push (content_items/categories/tags/profiles + RLS + FTS)
+- supabase gen types로 TypeScript 타입 생성
+- @supabase/ssr 기반 브라우저/서버 클라이언트 구성
+- Vercel project 연결 및 GitHub secrets 등록 (CI/CD 정상 동작 확인)
 
 ## 예정
 
-- Supabase project 연결 및 local migration 구성
 - 기본 schema, RLS policy, typegen 구성
 - 공개 피드와 관리자 로그인/대시보드 MVP 구현
-- Vercel project 연결 및 secrets 등록
 - shadcn/ui 실제 컴포넌트 초기화
 
 ## 참고사항
