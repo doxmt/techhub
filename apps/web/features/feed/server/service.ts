@@ -26,7 +26,7 @@ export type FeedFilters = {
 
 const PAGE_SIZE = 20;
 
-type RawRow = {
+type ContentRow = {
   id: number;
   title: string;
   description: string | null;
@@ -36,12 +36,12 @@ type RawRow = {
   language: string | null;
   slug: string;
   published_at: string | null;
-  content_categories: { categories: { name: string; slug: string } | null }[];
-  content_tags: { tags: { name: string } | null }[];
+  status?: string;
+  content_categories: { categories: { name: string; slug: string } | null }[] | null;
+  content_tags: { tags: { name: string } | null }[] | null;
 };
 
-
-function mapToFeedItem(row: RawRow): FeedItem {
+function mapToFeedItem(row: ContentRow): FeedItem {
   return {
     id: String(row.id),
     title: row.title,
@@ -52,10 +52,10 @@ function mapToFeedItem(row: RawRow): FeedItem {
     language: row.language ?? "ko",
     slug: row.slug,
     publishedAt: row.published_at ?? "",
-    categories: row.content_categories
+    categories: (row.content_categories ?? [])
       .map((cc) => cc.categories)
       .filter((c): c is { name: string; slug: string } => c !== null),
-    tags: row.content_tags
+    tags: (row.content_tags ?? [])
       .map((ct) => ct.tags)
       .filter((t): t is { name: string } => t !== null),
   };
@@ -118,10 +118,10 @@ export async function getFeed(
   const hasMore = data.length > PAGE_SIZE;
   const rows = hasMore ? data.slice(0, PAGE_SIZE) : data;
 
-  const items = rows.map(mapToFeedItem);
+  const items = (rows as unknown as ContentRow[]).map(mapToFeedItem);
   const nextCursor = hasMore
     ? encodeCursor({
-        publishedAt: rows[rows.length - 1].published_at!,
+        publishedAt: (rows[rows.length - 1] as unknown as ContentRow).published_at!,
         id: rows[rows.length - 1].id,
       })
     : null;
@@ -147,5 +147,5 @@ export async function getContentBySlugId(
     .single();
 
   if (!data || data.status !== "published") return null;
-  return mapToFeedItem(data);
+  return mapToFeedItem(data as unknown as ContentRow);
 }

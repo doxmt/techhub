@@ -1,8 +1,9 @@
 "use server";
 
 import { getFeed } from "./service";
-import type { FeedItem } from "./service";
+import type { FeedItem, FeedFilters } from "./service";
 import type { ContentType } from "@techhub/shared";
+import { CONTENT_TYPES } from "@techhub/shared";
 
 export async function loadMoreFeed(input: {
   cursor: string;
@@ -11,13 +12,18 @@ export async function loadMoreFeed(input: {
   type?: string;
   lang?: string;
 }): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
-  return getFeed(
-    {
-      q: input.q,
-      category: input.category,
-      type: input.type as ContentType | undefined,
-      lang: input.lang,
-    },
-    input.cursor,
-  );
+  const type =
+    input.type !== undefined &&
+    (CONTENT_TYPES as readonly string[]).includes(input.type)
+      ? (input.type as ContentType)
+      : undefined;
+
+  const filters: FeedFilters = {
+    q: input.q,
+    category: input.category,
+    type,
+    lang: input.lang,
+  };
+
+  return getFeed(filters, input.cursor);
 }
