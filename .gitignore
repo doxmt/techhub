@@ -1,6 +1,10 @@
 .claude/settings.local.json
 .claude/logs/
 .DS_Store
+Thumbs.db
+
+# IDE
+.idea/
 
 # dependencies
 node_modules/
@@ -26,6 +30,9 @@ test-results/
 .vercel/
 .branches/
 
+# testing — playwright auth state
+playwright/.auth/
+
 # plans (local working documents)
 docs/plans/
 
@@ -33,4 +40,3 @@ docs/plans/
 *.log
 npm-debug.log*
 pnpm-debug.log*
-.vercel

@@ -39,7 +39,15 @@ INSERT INTO content_items (url, type, title, description, thumbnail, source, lan
   ('https://career.example.com/senior-engineer-skills', 'article', 'Senior Engineer가 되기 위해 반드시 갖춰야 할 비기술적 역량', '기술 스택을 넘어 시니어 엔지니어로 성장하기 위한 커뮤니케이션과 설계 사고를 다룹니다.', 'https://career.example.com/og/senior-skills.png', 'career.example.com', 'ko', 'senior-engineer-skills', 'published', '2026-05-30 09:00:00+00'),
   ('https://blog.example.org/tailwind-v4-migration', 'article', 'Tailwind CSS v4 Migration Guide: Breaking Changes and New Features', 'Everything you need to know to migrate your project from Tailwind v3 to v4.', 'https://blog.example.org/og/tailwind-v4.png', 'blog.example.org', 'en', 'tailwind-v4-migration', 'published', '2026-06-01 10:00:00+00'),
   ('https://www.youtube.com/watch?v=mno345', 'youtube', 'System Design Interview: URL Shortener from Scratch', 'Walk through designing a scalable URL shortener covering databases, caching, and load balancing.', 'https://img.youtube.com/vi/mno345/hqdefault.jpg', 'youtube.com', 'en', 'system-design-url-shortener', 'draft', NULL),
-  ('https://draft.example.com/rust-for-js-devs', 'article', 'JavaScript 개발자를 위한 Rust 입문', 'JS/TS 개발자 관점에서 Rust의 소유권, 빌림 개념을 쉽게 설명합니다.', NULL, 'draft.example.com', 'ko', 'rust-for-js-devs', 'draft', NULL)
+  ('https://draft.example.com/rust-for-js-devs', 'article', 'JavaScript 개발자를 위한 Rust 입문', 'JS/TS 개발자 관점에서 Rust의 소유권, 빌림 개념을 쉽게 설명합니다.', NULL, 'draft.example.com', 'ko', 'rust-for-js-devs', 'draft', NULL),
+  ('https://blog.example.com/vercel-edge-functions', 'article', 'Vercel Edge Functions 실전 가이드', 'Edge Runtime에서 동작하는 함수를 작성하고 배포하는 방법을 다룹니다.', 'https://blog.example.com/og/vercel-edge.png', 'blog.example.com', 'ko', 'vercel-edge-functions', 'published', '2026-06-01 10:00:00+00'),
+  ('https://www.youtube.com/watch?v=pqr678', 'youtube', 'pnpm Workspaces & Turborepo: Monorepo 완전 정복', NULL, 'https://img.youtube.com/vi/pqr678/hqdefault.jpg', NULL, 'ko', 'pnpm-turborepo-monorepo', 'published', '2026-06-02 09:00:00+00'),
+  ('https://blog.example.io/web-vitals-2026', 'article', 'Core Web Vitals 2026: INP 최적화 실전 전략', 'Interaction to Next Paint(INP) 지표를 개선하기 위한 구체적인 기법들을 소개합니다.', 'https://blog.example.io/og/web-vitals.png', 'blog.example.io', 'ko', 'web-vitals-2026', 'published', '2026-06-02 11:00:00+00'),
+  ('https://dev.example.net/graphql-vs-rest-2026', 'article', 'GraphQL vs REST in 2026: Which Should You Choose?', 'A pragmatic comparison of GraphQL and REST API design in modern full-stack applications.', 'https://dev.example.net/og/graphql-rest.png', 'dev.example.net', 'en', 'graphql-vs-rest-2026', 'published', '2026-06-03 08:00:00+00'),
+  ('https://www.youtube.com/watch?v=stu901', 'youtube', 'Zustand로 상태 관리 단순화하기', 'Redux 없이 Zustand를 이용해 전역 상태를 깔끔하게 관리하는 방법을 설명합니다.', 'https://img.youtube.com/vi/stu901/hqdefault.jpg', 'youtube.com', 'ko', 'zustand-state-management', 'published', '2026-06-03 14:00:00+00'),
+  ('https://blog.example.com/drizzle-orm-guide', 'article', 'Drizzle ORM 완벽 가이드: TypeScript-first ORM의 모든 것', 'Prisma 대안으로 주목받는 Drizzle ORM의 기본부터 고급 사용법까지 정리합니다.', 'https://blog.example.com/og/drizzle.png', 'blog.example.com', 'ko', 'drizzle-orm-guide', 'published', '2026-06-04 09:00:00+00'),
+  ('https://engineering.example.com/bun-vs-node-2026', 'article', 'Bun vs Node.js 2026: Production 환경 성능 비교', 'Bun 1.x와 Node.js 22를 실제 프로덕션 워크로드에서 비교 분석합니다.', 'https://engineering.example.com/og/bun-node.png', 'engineering.example.com', 'en', 'bun-vs-node-2026', 'published', '2026-06-04 12:00:00+00'),
+  ('https://blog.example.dev/react-query-v5-guide', 'article', 'TanStack Query v5 마이그레이션 가이드', 'React Query v4에서 v5로 업그레이드 시 달라진 API와 마이그레이션 전략을 정리합니다.', 'https://blog.example.dev/og/react-query-v5.png', 'blog.example.dev', 'ko', 'react-query-v5-guide', 'published', '2026-06-05 08:00:00+00')
 ON CONFLICT (slug) DO NOTHING;
 
 -- content_categories 연결
@@ -132,6 +140,54 @@ INSERT INTO content_categories (content_id, category_id)
 SELECT ci.id, cat.id
 FROM content_items ci, categories cat
 WHERE ci.slug = 'rust-for-js-devs' AND cat.slug = 'be'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_categories (content_id, category_id)
+SELECT ci.id, cat.id
+FROM content_items ci, categories cat
+WHERE ci.slug = 'vercel-edge-functions' AND cat.slug = 'cloud'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_categories (content_id, category_id)
+SELECT ci.id, cat.id
+FROM content_items ci, categories cat
+WHERE ci.slug = 'pnpm-turborepo-monorepo' AND cat.slug = 'tools'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_categories (content_id, category_id)
+SELECT ci.id, cat.id
+FROM content_items ci, categories cat
+WHERE ci.slug = 'web-vitals-2026' AND cat.slug = 'fe'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_categories (content_id, category_id)
+SELECT ci.id, cat.id
+FROM content_items ci, categories cat
+WHERE ci.slug = 'graphql-vs-rest-2026' AND cat.slug = 'be'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_categories (content_id, category_id)
+SELECT ci.id, cat.id
+FROM content_items ci, categories cat
+WHERE ci.slug = 'zustand-state-management' AND cat.slug = 'fe'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_categories (content_id, category_id)
+SELECT ci.id, cat.id
+FROM content_items ci, categories cat
+WHERE ci.slug = 'drizzle-orm-guide' AND cat.slug = 'be'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_categories (content_id, category_id)
+SELECT ci.id, cat.id
+FROM content_items ci, categories cat
+WHERE ci.slug = 'bun-vs-node-2026' AND cat.slug = 'tools'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO content_categories (content_id, category_id)
+SELECT ci.id, cat.id
+FROM content_items ci, categories cat
+WHERE ci.slug = 'react-query-v5-guide' AND cat.slug = 'fe'
 ON CONFLICT DO NOTHING;
 
 -- content_tags 연결
