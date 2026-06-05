@@ -30,6 +30,7 @@ describe("getFeed", () => {
           data: [
             {
               id: 1,
+              url: "https://example.com/nullable-relations",
               title: "Nullable relations",
               description: null,
               thumbnail: null,

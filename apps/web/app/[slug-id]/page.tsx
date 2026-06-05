@@ -67,7 +67,7 @@ export default async function ContentDetailPage({ params }: Props) {
       )}
       <div className="mt-6">
         <a
-          href={`#`}
+          href={item.url}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-md bg-neutral-950 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-100"

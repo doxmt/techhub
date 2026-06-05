@@ -1,8 +1,10 @@
 import {
   CONTENT_LANGUAGES,
   CONTENT_TYPES,
+  FEED_SECTIONS,
   type ContentLanguage,
   type ContentType,
+  type FeedSection,
 } from "./index";
 
 export function parseFeedParams(params: Record<string, unknown>): {
@@ -10,12 +12,14 @@ export function parseFeedParams(params: Record<string, unknown>): {
   category?: string;
   type?: ContentType;
   lang?: ContentLanguage;
+  section?: FeedSection;
 } {
   const result: {
     q?: string;
     category?: string;
     type?: ContentType;
     lang?: ContentLanguage;
+    section?: FeedSection;
   } = {};
 
   if (typeof params.q === "string" && params.q.length > 0) {
@@ -38,6 +42,13 @@ export function parseFeedParams(params: Record<string, unknown>): {
     (CONTENT_LANGUAGES as readonly string[]).includes(params.lang)
   ) {
     result.lang = params.lang as ContentLanguage;
+  }
+
+  if (
+    typeof params.section === "string" &&
+    (FEED_SECTIONS as readonly string[]).includes(params.section)
+  ) {
+    result.section = params.section as FeedSection;
   }
 
   return result;

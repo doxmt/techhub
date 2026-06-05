@@ -8,12 +8,14 @@ describe("parseFeedParams", () => {
       category: "FE",
       type: "article",
       lang: "ko",
+      section: "article",
     });
     expect(result).toEqual({
       q: "react",
       category: "FE",
       type: "article",
       lang: "ko",
+      section: "article",
     });
   });
 
@@ -23,6 +25,7 @@ describe("parseFeedParams", () => {
     expect(result.category).toBeUndefined();
     expect(result.type).toBeUndefined();
     expect(result.lang).toBeUndefined();
+    expect(result.section).toBeUndefined();
   });
 
   it("type이 유효하지 않으면 undefined를 반환한다", () => {
@@ -43,5 +46,20 @@ describe("parseFeedParams", () => {
   it("유효한 lang 'en'을 파싱한다", () => {
     const result = parseFeedParams({ lang: "en" });
     expect(result.lang).toBe("en");
+  });
+
+  it("유효한 section 'contest'를 파싱한다", () => {
+    const result = parseFeedParams({ section: "contest" });
+    expect(result.section).toBe("contest");
+  });
+
+  it("유효한 section 'saved'를 파싱한다", () => {
+    const result = parseFeedParams({ section: "saved" });
+    expect(result.section).toBe("saved");
+  });
+
+  it("section이 유효하지 않으면 undefined를 반환한다", () => {
+    const result = parseFeedParams({ section: "invalid" });
+    expect(result.section).toBeUndefined();
   });
 });

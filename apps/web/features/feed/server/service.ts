@@ -1,10 +1,11 @@
 import { createClient } from "../../../lib/supabase/server";
 import { encodeCursor, decodeCursor } from "../../../lib/cursor";
 import { parseSlugId } from "../../../lib/slug";
-import type { ContentType } from "@techhub/shared";
+import type { ContentType, FeedSection } from "@techhub/shared";
 
 export type FeedItem = {
   id: string;
+  url: string;
   title: string;
   description: string | null;
   thumbnailUrl: string | null;
@@ -22,12 +23,14 @@ export type FeedFilters = {
   category?: string;
   type?: ContentType;
   lang?: string;
+  section?: FeedSection;
 };
 
 const PAGE_SIZE = 20;
 
 type ContentRow = {
   id: number;
+  url: string;
   title: string;
   description: string | null;
   thumbnail: string | null;
@@ -44,6 +47,7 @@ type ContentRow = {
 function mapToFeedItem(row: ContentRow): FeedItem {
   return {
     id: String(row.id),
+    url: row.url,
     title: row.title,
     description: row.description ?? null,
     thumbnailUrl: row.thumbnail ?? null,
@@ -66,13 +70,18 @@ export async function getFeed(
   cursor?: string,
 ): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
   const supabase = await createClient();
+  const relationSelect = filters.category
+    ? `content_categories!inner(categories!inner(name, slug)),
+      content_tags(tags(name))`
+    : `content_categories(categories(name, slug)),
+      content_tags(tags(name))`;
 
   let query = supabase
     .from("content_items")
     .select(
       `id, title, description, thumbnail, source, type, language, slug, published_at,
-      content_categories(categories(name, slug)),
-      content_tags(tags(name))`,
+      url,
+      ${relationSelect}`,
     )
     .eq("status", "published")
     .order("published_at", { ascending: false })
@@ -100,7 +109,9 @@ export async function getFeed(
     }
   }
 
-  if (filters.type) {
+  if (filters.section === "article") {
+    query = query.eq("type", "article");
+  } else if (filters.type) {
     query = query.eq("type", filters.type);
   }
 
@@ -140,6 +151,7 @@ export async function getContentBySlugId(
     .from("content_items")
     .select(
       `id, title, description, thumbnail, source, type, language, slug, status, published_at,
+      url,
       content_categories(categories(name, slug)),
       content_tags(tags(name))`,
     )

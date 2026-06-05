@@ -16,6 +16,7 @@ import type { FeedItem } from "../../features/feed/server/service";
 
 const FIXTURE: FeedItem = {
   id: "1",
+  url: "https://example.com/react-server-components",
   title: "React Server Components 완벽 가이드",
   description: "RSC 설명",
   thumbnailUrl: "https://example.com/thumb.png",
@@ -33,7 +34,7 @@ describe("ContentCard", () => {
     render(<ContentCard item={FIXTURE} />);
     expect(screen.getByText("React Server Components 완벽 가이드")).toBeInTheDocument();
     expect(screen.getByText("example.com")).toBeInTheDocument();
-    expect(screen.getByText("article")).toBeInTheDocument();
+    expect(screen.getByText("아티클")).toBeInTheDocument();
   });
 
   it("thumbnailUrl이 null이면 placeholder를 렌더한다", () => {
@@ -51,7 +52,7 @@ describe("ContentCard", () => {
     expect(screen.queryByText("RSC 설명")).not.toBeInTheDocument();
   });
 
-  it("categories 배열을 badge로 렌더한다", () => {
+  it("첫 번째 category를 메타 정보로 렌더한다", () => {
     render(<ContentCard item={FIXTURE} />);
     expect(screen.getByText("Frontend")).toBeInTheDocument();
   });

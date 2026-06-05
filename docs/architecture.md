@@ -101,7 +101,7 @@ GitHub OAuth
 
 ## 데이터 모델
 
-- `content_items`: URL, 섹션(`news`/`article`), 미디어 타입(`article`/`youtube`), 제목, 설명, 썸네일, 출처, 언어, slug, 게시 상태, 등록일/수정일
+- `content_items`: URL, 미디어 타입(`article`/`youtube`), 제목, 설명, 썸네일, 출처, 언어, slug, 게시 상태, 등록일/수정일
 - `categories`: FE, BE, Cloud, Claude Code, AI Agents, Tools, Architecture, Career
 - `tags`: 자유 태그
 - `content_categories`: 콘텐츠와 카테고리 연결
@@ -112,8 +112,9 @@ GitHub OAuth
 
 ## 분류 원칙
 
-- 공개 UI의 상위 분류는 `section`이다.
-- v1 섹션은 `news`, `article` 두 값만 사용한다.
+- 공개 UI의 상위 분류는 URL query의 `section`이다.
+- UI-first 단계의 섹션은 `news`, `article`, `contest`를 사용한다.
+- 현재 DB에는 별도 section 컬럼을 추가하지 않는다. `news`는 전체 최신순, `article`은 기존 `type='article'`, `contest`는 준비중 상태로 처리한다.
 - 기존 `type`은 콘텐츠 표시 방식이나 원본 미디어를 나타내는 보조 필드로 유지한다.
 - 검색/필터 URL query는 `section`, `category`, `lang`, `q`를 기본으로 사용한다.
 
