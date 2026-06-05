@@ -4,6 +4,7 @@ import { getFeed } from "./service";
 import type { FeedItem, FeedFilters } from "./service";
 import type { ContentType, FeedSection } from "@techhub/shared";
 import { CONTENT_TYPES, FEED_SECTIONS } from "@techhub/shared";
+import { createClient } from "../../../lib/supabase/server";
 
 export async function loadMoreFeed(input: {
   cursor: string;
@@ -36,5 +37,9 @@ export async function loadMoreFeed(input: {
     section,
   };
 
-  return getFeed(filters, input.cursor);
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData?.user?.id;
+
+  return getFeed(filters, input.cursor, userId);
 }

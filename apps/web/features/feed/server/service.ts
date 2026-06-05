@@ -16,6 +16,8 @@ export type FeedItem = {
   publishedAt: string;
   categories: { name: string; slug: string }[];
   tags: { name: string }[];
+  isBookmarked?: boolean;
+  isLiked?: boolean;
 };
 
 export type FeedFilters = {
@@ -68,6 +70,7 @@ function mapToFeedItem(row: ContentRow): FeedItem {
 export async function getFeed(
   filters: FeedFilters,
   cursor?: string,
+  userId?: string,
 ): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
   const supabase = await createClient();
   const relationSelect = filters.category
@@ -136,6 +139,24 @@ export async function getFeed(
         id: rows[rows.length - 1].id,
       })
     : null;
+
+  if (userId && items.length > 0) {
+    const ids = items.map((item) => parseInt(item.id));
+    const [{ data: bookmarks }, { data: likes }] = await Promise.all([
+      supabase.from("bookmarks").select("content_id").eq("user_id", userId).in("content_id", ids),
+      supabase.from("likes").select("content_id").eq("user_id", userId).in("content_id", ids),
+    ]);
+    const bookmarkedSet = new Set((bookmarks ?? []).map((b) => String(b.content_id)));
+    const likedSet = new Set((likes ?? []).map((l) => String(l.content_id)));
+    return {
+      items: items.map((item) => ({
+        ...item,
+        isBookmarked: bookmarkedSet.has(item.id),
+        isLiked: likedSet.has(item.id),
+      })),
+      nextCursor,
+    };
+  }
 
   return { items, nextCursor };
 }

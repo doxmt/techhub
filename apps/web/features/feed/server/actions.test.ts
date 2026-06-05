@@ -4,6 +4,12 @@ vi.mock("./service", () => ({
   getFeed: vi.fn(),
 }));
 
+vi.mock("../../../lib/supabase/server", () => ({
+  createClient: vi.fn().mockResolvedValue({
+    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) },
+  }),
+}));
+
 import { loadMoreFeed } from "./actions";
 import { getFeed } from "./service";
 
@@ -22,6 +28,7 @@ describe("loadMoreFeed", () => {
     expect(getFeed).toHaveBeenCalledWith(
       expect.objectContaining({ type: "article" }),
       "cursor-1",
+      undefined,
     );
   });
 
@@ -31,6 +38,7 @@ describe("loadMoreFeed", () => {
     expect(getFeed).toHaveBeenCalledWith(
       expect.objectContaining({ type: undefined }),
       "cursor-1",
+      undefined,
     );
   });
 });

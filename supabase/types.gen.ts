@@ -39,6 +39,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      bookmarks: {
+        Row: {
+          content_id: number
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          content_id: number
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          content_id?: number
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookmarks_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -175,22 +201,51 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          nickname: string
           role: string
           user_id: string
         }
         Insert: {
           created_at?: string
           email: string
+          nickname?: string
           role?: string
           user_id: string
         }
         Update: {
           created_at?: string
           email?: string
+          nickname?: string
           role?: string
           user_id?: string
         }
         Relationships: []
+      }
+      likes: {
+        Row: {
+          content_id: number
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          content_id: number
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          content_id?: number
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "likes_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {
