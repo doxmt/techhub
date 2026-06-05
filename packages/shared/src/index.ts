@@ -1,3 +1,5 @@
+export { parseFeedParams } from "./feed-params";
+
 export const CONTENT_CATEGORIES = [
   "FE",
   "BE",

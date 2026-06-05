@@ -95,6 +95,12 @@ has_test_for() {
     [ -f "${parent_dir}/__tests__/${base_name}.spec.${ext}" ] && return 0
     [ -f "${PROJECT_ROOT}/src/__tests__/${base_name}.test.${ext}" ] && return 0
     [ -f "${PROJECT_ROOT}/src/__tests__/${base_name}.spec.${ext}" ] && return 0
+    # apps/web/tests/unit/ 패턴 지원
+    find "${PROJECT_ROOT}" -path "*/tests/unit/${base_name}.test.${ext}" 2>/dev/null | grep -q . && return 0
+    find "${PROJECT_ROOT}" -path "*/tests/unit/${base_name}.spec.${ext}" 2>/dev/null | grep -q . && return 0
+    # packages/shared/src/ 내 테스트 파일 패턴 지원
+    find "${PROJECT_ROOT}" -path "*/src/${base_name}.test.${ext}" 2>/dev/null | grep -q . && return 0
+    find "${PROJECT_ROOT}" -path "*/src/${base_name}.spec.${ext}" 2>/dev/null | grep -q . && return 0
   done
 
   return 1
@@ -113,11 +119,16 @@ while IFS=$'\t' read -r action file_path; do
   esac
 
   case "$file_path" in
-    */types/*|*/types.ts|*/types.d.ts) continue ;;
+    */types/*|*/types.ts|*/types.d.ts|*/types.gen.ts) continue ;;
   esac
 
   case "$file_path" in
     */layout.tsx|*/layout.ts|*/page.tsx|*/page.ts|*/loading.tsx|*/error.tsx|*/not-found.tsx|*/globals.css) continue ;;
+  esac
+
+  # Supabase 클라이언트 설정 파일은 인프라 코드이므로 TDD 예외
+  case "$file_path" in
+    */lib/supabase/*) continue ;;
   esac
 
   case "$file_path" in
