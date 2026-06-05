@@ -26,7 +26,22 @@ export type FeedFilters = {
 
 const PAGE_SIZE = 20;
 
-function mapToFeedItem(row: any): FeedItem {
+type RawRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  thumbnail: string | null;
+  source: string | null;
+  type: string;
+  language: string | null;
+  slug: string;
+  published_at: string;
+  content_categories: { categories: { name: string; slug: string } | null }[];
+  content_tags: { tags: { name: string } | null }[];
+};
+
+
+function mapToFeedItem(row: RawRow): FeedItem {
   return {
     id: String(row.id),
     title: row.title,
@@ -36,13 +51,13 @@ function mapToFeedItem(row: any): FeedItem {
     type: row.type as ContentType,
     language: row.language ?? "ko",
     slug: row.slug,
-    publishedAt: row.published_at!,
-    categories: (row.content_categories ?? [])
-      .map((cc: any) => cc.categories)
-      .filter(Boolean),
-    tags: (row.content_tags ?? [])
-      .map((ct: any) => ct.tags)
-      .filter(Boolean),
+    publishedAt: row.published_at,
+    categories: row.content_categories
+      .map((cc) => cc.categories)
+      .filter((c): c is { name: string; slug: string } => c !== null),
+    tags: row.content_tags
+      .map((ct) => ct.tags)
+      .filter((t): t is { name: string } => t !== null),
   };
 }
 

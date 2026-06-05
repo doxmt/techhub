@@ -2,6 +2,7 @@
 
 import { getFeed } from "./service";
 import type { FeedItem } from "./service";
+import type { ContentType } from "@techhub/shared";
 
 export async function loadMoreFeed(input: {
   cursor: string;
@@ -14,7 +15,7 @@ export async function loadMoreFeed(input: {
     {
       q: input.q,
       category: input.category,
-      type: input.type as any,
+      type: input.type as ContentType | undefined,
       lang: input.lang,
     },
     input.cursor,
