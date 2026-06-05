@@ -47,6 +47,7 @@ function makeQueryBuilder(result: { data: unknown; error: unknown }) {
 // 테스트에서 사용할 FeedItem fixture
 const FIXTURE_ITEM = {
   id: 1,
+  url: "https://blog.example.com/react-server-components-deep-dive",
   title: "React Server Components 완벽 가이드",
   description: "RSC의 동작 원리를 설명합니다.",
   thumbnail: "https://blog.example.com/og/rsc-guide.png",

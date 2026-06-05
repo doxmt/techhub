@@ -3,8 +3,23 @@ import { expect, test } from "@playwright/test";
 test("renders the public TechHub feed", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: "최신 개발 콘텐츠" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "최신 개발 뉴스" })).toBeVisible();
   await expect(page.getByText("TanStack Query v5 마이그레이션 가이드")).toBeVisible();
+});
+
+test("switches public hub sections", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("link", { name: "최신 뉴스" })).toHaveAttribute("aria-current", "page");
+
+  await page.getByRole("link", { name: "아티클" }).click();
+  await expect(page).toHaveURL(/section=article/);
+  await expect(page.getByRole("link", { name: "아티클" })).toHaveAttribute("aria-current", "page");
+
+  await page.getByRole("link", { name: "공모전" }).click();
+  await expect(page).toHaveURL(/section=contest/);
+  await expect(page.getByRole("heading", { name: "공모전 데이터 준비중" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "더 보기" })).toBeHidden();
 });
 
 test("loads a second feed page", async ({ page }) => {
@@ -26,8 +41,8 @@ test("keeps filters and search in the URL", async ({ page }) => {
   await page.getByRole("button", { name: "Frontend" }).click();
   await expect(page).toHaveURL(/category=fe/);
 
-  await page.getByRole("button", { name: "article" }).click();
-  await expect(page).toHaveURL(/type=article/);
+  await page.getByRole("link", { name: "아티클" }).click();
+  await expect(page).toHaveURL(/section=article/);
 
   await page.getByRole("button", { name: "KO" }).click();
   await expect(page).toHaveURL(/lang=ko/);
@@ -36,7 +51,7 @@ test("keeps filters and search in the URL", async ({ page }) => {
   await page.getByPlaceholder("검색어 입력").press("Enter");
 
   await expect(page).toHaveURL(/category=fe/);
-  await expect(page).toHaveURL(/type=article/);
+  await expect(page).toHaveURL(/section=article/);
   await expect(page).toHaveURL(/lang=ko/);
   await expect(page).toHaveURL(/q=React/);
 });

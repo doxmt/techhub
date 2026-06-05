@@ -30,6 +30,7 @@ import { loadMoreFeed } from "../../features/feed/server/actions";
 
 const makeItem = (id: string, title: string): FeedItem => ({
   id,
+  url: `https://example.com/${id}`,
   title,
   description: `${title} 설명`,
   thumbnailUrl: null,
@@ -67,6 +68,19 @@ describe("FeedInfiniteScroll", () => {
     );
     expect(screen.getByText("첫 번째 콘텐츠")).toBeInTheDocument();
     expect(screen.getByText("두 번째 콘텐츠")).toBeInTheDocument();
+  });
+
+  it("grid view에서는 4열 그리드 클래스를 사용한다", () => {
+    render(
+      <FeedInfiniteScroll
+        initialItems={INITIAL_ITEMS}
+        nextCursor={null}
+        filters={{}}
+        view="grid"
+      />,
+    );
+
+    expect(screen.getByTestId("feed-items")).toHaveClass("lg:grid-cols-4");
   });
 
   it("nextCursor가 null이면 더 보기 트리거를 표시하지 않는다", () => {
@@ -110,6 +124,29 @@ describe("FeedInfiniteScroll", () => {
     await waitFor(() => {
       expect(loadMoreFeed).toHaveBeenCalledWith(
         expect.objectContaining({ cursor: "cursor-abc" }),
+      );
+    });
+  });
+
+  it("section 필터를 더 보기 요청에 전달한다", async () => {
+    (loadMoreFeed as ReturnType<typeof vi.fn>).mockResolvedValue({
+      items: MORE_ITEMS,
+      nextCursor: null,
+    });
+
+    render(
+      <FeedInfiniteScroll
+        initialItems={INITIAL_ITEMS}
+        nextCursor="cursor-abc"
+        filters={{ section: "article" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /더 보기|load more/i }));
+
+    await waitFor(() => {
+      expect(loadMoreFeed).toHaveBeenCalledWith(
+        expect.objectContaining({ cursor: "cursor-abc", section: "article" }),
       );
     });
   });
