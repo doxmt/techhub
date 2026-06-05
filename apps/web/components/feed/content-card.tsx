@@ -1,11 +1,13 @@
-import { Bookmark, Eye, ThumbsUp } from "lucide-react";
+import { Eye, ThumbsUp } from "lucide-react";
 import type { FeedItem } from "@/features/feed/server/service";
 import { cn } from "@/lib/utils";
+import { ContentActions } from "./content-actions";
 
 type Props = {
   item: FeedItem;
   variant?: "list" | "grid";
   onPreview?: (item: FeedItem) => void;
+  isLoggedIn?: boolean;
 };
 
 function formatDate(value: string) {
@@ -17,30 +19,8 @@ function formatDate(value: string) {
   ].join(".");
 }
 
-function BookmarkButton({ variant }: { variant: "list" | "grid" }) {
-  return (
-    <button
-      type="button"
-      aria-disabled="true"
-      aria-label="북마크 준비중"
-      title="북마크 준비중"
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-      className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-neutral-500 shadow-sm transition dark:text-neutral-300",
-        variant === "grid"
-          ? "absolute right-2 top-2 border border-white/20 bg-neutral-950/75 text-white backdrop-blur opacity-0 group-hover:opacity-100 hover:bg-neutral-950/85 dark:border-white/20 dark:bg-neutral-950/75 dark:text-white"
-          : "border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800 sm:opacity-0 sm:group-hover:opacity-100",
-      )}
-    >
-      <Bookmark className="size-4" aria-hidden="true" />
-    </button>
-  );
-}
 
-export function ContentCard({ item, variant = "list", onPreview }: Props) {
+export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = false }: Props) {
   const detailUrl = `/${item.slug}-${item.id}`;
   const isPreviewEnabled = Boolean(onPreview);
   const typeLabel = item.type === "article" ? "아티클" : "영상";
@@ -119,7 +99,15 @@ export function ContentCard({ item, variant = "list", onPreview }: Props) {
             )}
           </a>
         )}
-        {variant === "grid" && <BookmarkButton variant="grid" />}
+        {variant === "grid" && (
+          <ContentActions
+            contentId={Number(item.id)}
+            isBookmarked={item.isBookmarked ?? false}
+            isLiked={item.isLiked ?? false}
+            isLoggedIn={isLoggedIn}
+            variant="grid"
+          />
+        )}
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -143,7 +131,15 @@ export function ContentCard({ item, variant = "list", onPreview }: Props) {
               </a>
             )}
           </h2>
-          {variant === "list" && <BookmarkButton variant="list" />}
+          {variant === "list" && (
+            <ContentActions
+              contentId={Number(item.id)}
+              isBookmarked={item.isBookmarked ?? false}
+              isLiked={item.isLiked ?? false}
+              isLoggedIn={isLoggedIn}
+              variant="list"
+            />
+          )}
         </div>
 
         <p
@@ -188,10 +184,6 @@ export function ContentCard({ item, variant = "list", onPreview }: Props) {
             </span>
             <span className="inline-flex items-center gap-1">
               <ThumbsUp className="size-3" aria-hidden="true" />
-              0
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Bookmark className="size-3" aria-hidden="true" />
               0
             </span>
           </div>

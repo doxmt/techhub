@@ -12,9 +12,12 @@ import {
 } from "lucide-react";
 import { CATEGORIES, parseFeedParams } from "@techhub/shared";
 import { getFeed } from "../features/feed/server/service";
+import { getSavedFeed } from "../features/auth/server/service";
 import { FeedInfiniteScroll } from "../components/feed/feed-infinite-scroll";
 import { FeedSortFilter } from "../components/feed/feed-sort-filter";
 import { ThemeToggle } from "../components/theme-toggle";
+import { HeaderUserMenu } from "../features/auth/components/header-user-menu";
+import { createClient } from "../lib/supabase/server";
 import { cn } from "../lib/utils";
 
 type Props = {
@@ -38,11 +41,36 @@ export default async function HomePage({ searchParams }: Props) {
     params.period === "month"
       ? params.period
       : "all";
-  const placeholderSections = ["contest", "recommended", "saved"];
+
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const authUser = userData?.user ?? null;
+
+  let userProfile: { nickname: string; email: string } | null = null;
+  let isAdmin = false;
+  if (authUser) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("nickname, email, role")
+      .eq("user_id", authUser.id)
+      .single();
+    if (profile) {
+      userProfile = { nickname: profile.nickname ?? authUser.email ?? "", email: profile.email ?? authUser.email ?? "" };
+      isAdmin = profile.role === "admin";
+    } else {
+      userProfile = { nickname: authUser.email ?? "", email: authUser.email ?? "" };
+    }
+  }
+
+  const placeholderSections = ["contest", "recommended"];
   const { items, nextCursor } =
     placeholderSections.includes(currentSection)
       ? { items: [], nextCursor: null }
-      : await getFeed(filters);
+      : currentSection === "saved"
+        ? authUser
+          ? await getSavedFeed({ userId: authUser.id })
+          : { items: [], nextCursor: null }
+        : await getFeed(filters, undefined, authUser?.id);
 
   const sectionTabs = [
     {
@@ -77,7 +105,7 @@ export default async function HomePage({ searchParams }: Props) {
       value: "saved",
       label: "저장됨",
       heading: "저장한 콘텐츠",
-      description: "북마크 기능은 후속 단계에서 제공할 예정입니다.",
+      description: "북마크한 뉴스와 아티클을 모아볼 수 있습니다.",
       icon: Bookmark,
     },
   ] as const;
@@ -98,21 +126,13 @@ export default async function HomePage({ searchParams }: Props) {
         "운영자가 선별한 주요 뉴스와 아티클을 따로 모아볼 수 있게 준비하고 있습니다.",
       previewItems: ["이번 주 주요 소식", "깊이 읽을 글", "주목할 도구"],
     },
-    saved: {
-      icon: Bookmark,
-      title: "저장 기능 준비중",
-      description:
-        "로그인과 북마크 기능이 추가되면 저장한 뉴스와 아티클을 이곳에서 볼 수 있습니다.",
-      previewItems: ["나중에 읽기", "관심 아티클", "저장한 공모전"],
-    },
   } as const;
   const activePlaceholder =
-    currentSection === "contest" ||
-    currentSection === "recommended" ||
-    currentSection === "saved"
+    currentSection === "contest" || currentSection === "recommended"
       ? placeholderContent[currentSection]
       : null;
   const EmptyIcon = activePlaceholder?.icon ?? Trophy;
+  const showSavedLoginRequired = currentSection === "saved" && !authUser;
   function baseParams() {
     const nextParams = new URLSearchParams();
     if (filters.q) nextParams.set("q", filters.q);
@@ -179,13 +199,16 @@ export default async function HomePage({ searchParams }: Props) {
           </a>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <a
-              className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-700/70 dark:text-neutral-100 dark:hover:bg-neutral-700"
-              href="/admin"
-            >
-              Admin
-              <ArrowUpRight className="size-4" aria-hidden="true" />
-            </a>
+            <HeaderUserMenu user={userProfile} />
+            {isAdmin && (
+              <a
+                className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-700/70 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                href="/admin"
+              >
+                Admin
+                <ArrowUpRight className="size-4" aria-hidden="true" />
+              </a>
+            )}
           </div>
         </div>
       </header>
@@ -368,12 +391,32 @@ export default async function HomePage({ searchParams }: Props) {
                 </a>
               </div>
             </section>
+          ) : showSavedLoginRequired ? (
+            <section className="rounded-md border border-dashed border-neutral-300 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800/60">
+              <div className="mb-4 flex size-11 items-center justify-center rounded-md bg-teal-50 dark:bg-teal-950/40">
+                <Bookmark className="size-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              </div>
+              <h2 className="text-lg font-semibold">로그인이 필요합니다</h2>
+              <p className="mt-2 max-w-xl text-sm text-neutral-500">
+                저장한 콘텐츠를 보려면 로그인해 주세요. 로그인 후 북마크한 뉴스와 아티클을 이곳에서 확인할 수 있습니다.
+              </p>
+              <div className="mt-5">
+                <a
+                  href={sectionHref("news")}
+                  className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  최신 뉴스 보기
+                  <ArrowUpRight className="size-4" aria-hidden="true" />
+                </a>
+              </div>
+            </section>
           ) : (
             <FeedInfiniteScroll
               initialItems={items}
               nextCursor={nextCursor}
               filters={filters}
               view={currentView}
+              isLoggedIn={!!authUser}
             />
           )}
         </div>

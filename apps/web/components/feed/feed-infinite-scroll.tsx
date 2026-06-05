@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpRight, Bookmark, Eye, ThumbsUp, X } from "lucide-react";
 import { ContentCard } from "./content-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadMoreFeed } from "@/features/feed/server/actions";
+import { toggleBookmark, toggleLike } from "@/features/auth/server/actions";
+import { AuthDialog } from "@/features/auth/components/auth-dialog";
 import type { FeedItem } from "@/features/feed/server/service";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +23,7 @@ type Props = {
   nextCursor: string | null;
   filters: Filters;
   view?: "list" | "grid";
+  isLoggedIn?: boolean;
 };
 
 export function FeedInfiniteScroll({
@@ -28,6 +31,7 @@ export function FeedInfiniteScroll({
   nextCursor,
   filters,
   view = "list",
+  isLoggedIn = false,
 }: Props) {
   const [items, setItems] = useState<FeedItem[]>(initialItems);
   const [cursor, setCursor] = useState<string | null>(nextCursor);
@@ -90,6 +94,7 @@ export function FeedInfiniteScroll({
             item={item}
             variant={view}
             onPreview={setPreviewItem}
+            isLoggedIn={isLoggedIn}
           />
         ))}
       </div>
@@ -111,6 +116,7 @@ export function FeedInfiniteScroll({
       {previewItem && (
         <ContentPreviewModal
           item={previewItem}
+          isLoggedIn={isLoggedIn}
           onClose={() => setPreviewItem(null)}
         />
       )}
@@ -128,12 +134,38 @@ function formatDate(value: string) {
 
 function ContentPreviewModal({
   item,
+  isLoggedIn,
   onClose,
 }: {
   item: FeedItem;
+  isLoggedIn: boolean;
   onClose: () => void;
 }) {
+  const [bookmarked, setBookmarked] = useState(item.isBookmarked ?? false);
+  const [liked, setLiked] = useState(item.isLiked ?? false);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [, startTransition] = useTransition();
   const typeLabel = item.type === "article" ? "아티클" : "영상";
+
+  function handleBookmarkClick() {
+    if (!isLoggedIn) { setAuthDialogOpen(true); return; }
+    const next = !bookmarked;
+    setBookmarked(next);
+    startTransition(async () => {
+      const result = await toggleBookmark(Number(item.id));
+      if ("error" in result) setBookmarked(!next);
+    });
+  }
+
+  function handleLikeClick() {
+    if (!isLoggedIn) { setAuthDialogOpen(true); return; }
+    const next = !liked;
+    setLiked(next);
+    startTransition(async () => {
+      const result = await toggleLike(Number(item.id));
+      if ("error" in result) setLiked(!next);
+    });
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -245,18 +277,28 @@ function ContentPreviewModal({
             <div className="flex gap-2">
               <button
                 type="button"
-                aria-disabled="true"
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-neutral-200 px-3 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                onClick={handleLikeClick}
+                className={cn(
+                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition",
+                  liked
+                    ? "border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800/50 dark:bg-amber-950/20 dark:text-amber-400"
+                    : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700",
+                )}
               >
-                <ThumbsUp className="size-4" aria-hidden="true" />
+                <ThumbsUp className={cn("size-4", liked && "fill-current")} aria-hidden="true" />
                 추천
               </button>
               <button
                 type="button"
-                aria-disabled="true"
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-neutral-200 px-3 text-sm font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                onClick={handleBookmarkClick}
+                className={cn(
+                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition",
+                  bookmarked
+                    ? "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-400"
+                    : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700",
+                )}
               >
-                <Bookmark className="size-4" aria-hidden="true" />
+                <Bookmark className={cn("size-4", bookmarked && "fill-current")} aria-hidden="true" />
                 북마크
               </button>
             </div>
@@ -272,6 +314,7 @@ function ContentPreviewModal({
           </div>
         </div>
       </section>
+      <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
     </div>
   );
 }
