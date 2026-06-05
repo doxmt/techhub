@@ -25,28 +25,44 @@
    - 무한 스크롤
    - 콘텐츠 상세 페이지와 기본 SEO/OG
 
-4. 관리자 MVP
+4. 커뮤니티 피드 UI 전환
+   - 공개 피드를 뉴스/아티클 섹션 기반으로 재구성
+   - `content_items.section` 추가
+   - 섹션, 주제, 언어, 검색 URL query 동기화
+   - 콘텐츠 카드와 상세 페이지에 섹션 배지 표시
+   - 뉴스 샘플 seed 추가
+
+5. RSS/API 소스 수집 MVP
+   - `sources` 테이블 설계
+   - RSS/API fetch 및 항목 정규화
+   - Vercel Cron Route Handler 구성
+   - 중복 URL/slug 처리
+   - 수집 실행 결과 로깅
+
+6. 관리자 MVP
    - GitHub OAuth 로그인
    - 이메일 allowlist 기반 관리자 권한
-   - URL 등록 폼
-   - 서버 fetch + cheerio 메타데이터 수집
+   - 소스 등록/활성화/비활성화
    - 콘텐츠 수정/게시/비공개/삭제
    - 관리자 콘텐츠 테이블
 
-5. 운영/배포
+7. 운영/배포
+   - Vercel Cron secret 구성
+   - 수집 실패 로그 확인 흐름
    - Sentry 구성
    - Vercel Web Analytics 구성
    - GitHub Actions preview/production CI/CD를 pnpm 기준으로 적용
    - Vercel 환경변수와 Supabase secret 연결
 
-6. 품질 보강
+8. 품질 보강
    - RLS 테스트
-   - URL/메타데이터 파싱 단위 테스트
-   - 공개 피드/관리자 플로우 E2E 테스트
+   - RSS/API 파싱 단위 테스트
+   - 공개 피드/수집/관리자 플로우 E2E 테스트
    - 모바일/데스크톱 UI 검증
 
 ## 완료
 
 - MVP 제품 방향 확정
+- 뉴스/아티클 중심 커뮤니티 피드 방향 확정
 - 기술스택 선정
 - 문서 작성
