@@ -52,7 +52,6 @@ export function FeedInfiniteScroll({
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor, isLoading]);
 
   async function handleLoadMore() {
