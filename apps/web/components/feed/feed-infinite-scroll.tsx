@@ -107,7 +107,7 @@ export function FeedInfiniteScroll({
           {view === "grid" && <Skeleton className="h-32 w-full" />}
         </div>
       )}
-      {cursor && <div ref={sentinelRef} className="h-1" />}
+      {cursor && <div ref={sentinelRef} className="h-1" data-testid="load-more-sentinel" />}
       {previewItem && (
         <ContentPreviewModal
           item={previewItem}
