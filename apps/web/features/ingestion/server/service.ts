@@ -1,5 +1,6 @@
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { parseRssFeed, normalizeItem, type IngestionSource } from "./parser";
+import { classifyCategory } from "./classify";
 
 const MAX_ITEMS_PER_SOURCE = 30;
 const FETCH_TIMEOUT_MS = 10_000;
@@ -28,7 +29,22 @@ export async function runIngestion(): Promise<IngestionResult> {
     return { status: "failed", processed: 0, created: 0, skipped: 0, failed: 0 };
   }
 
-  // 2. ingestion_run 시작 기록
+  // 2. categories 슬러그 → id 맵 (한 번만 조회)
+  const categoryMap = new Map<string, number>();
+  try {
+    const { data: categories } = await adminClient
+      .from("categories")
+      .select("id, slug");
+    if (Array.isArray(categories)) {
+      for (const cat of categories as Array<{ id: number; slug: string }>) {
+        categoryMap.set(cat.slug, cat.id);
+      }
+    }
+  } catch {
+    // 카테고리 조회 실패는 무시 (수집 자체에 영향 없음)
+  }
+
+  // 3. ingestion_run 시작 기록
   const { data: runData } = await adminClient
     .from("ingestion_runs")
     .insert({ status: "running" });
@@ -40,7 +56,7 @@ export async function runIngestion(): Promise<IngestionResult> {
   let totalProcessed = 0;
   let totalFailed = 0;
 
-  // 3. 소스별 순회
+  // 4. 소스별 순회
   for (const source of sources as IngestionSource[]) {
     try {
       // fetch with timeout
@@ -101,6 +117,24 @@ export async function runIngestion(): Promise<IngestionResult> {
       totalCreated += insertedCount;
       totalSkipped += payloads.length - insertedCount;
 
+      // 카테고리 연결 (data에 id가 있을 때만)
+      if (Array.isArray(insertData) && insertData.length > 0 && categoryMap.size > 0) {
+        const categoryInserts = (insertData as Array<{ id: number }>)
+          .map((item, idx) => {
+            const payload = payloads[idx];
+            if (!payload) return null;
+            const slug = classifyCategory(payload.title ?? "", payload.description);
+            const categoryId = slug ? categoryMap.get(slug) : undefined;
+            if (categoryId === undefined) return null;
+            return { content_id: item.id, category_id: categoryId };
+          })
+          .filter((x): x is { content_id: number; category_id: number } => x !== null);
+
+        if (categoryInserts.length > 0) {
+          void adminClient.from("content_categories").insert(categoryInserts);
+        }
+      }
+
       // last_ingested_at 갱신 (실패해도 소스 처리 실패로 카운트하지 않음)
       void updateLastIngested(adminClient, source.id);
     } catch {
@@ -108,7 +142,7 @@ export async function runIngestion(): Promise<IngestionResult> {
     }
   }
 
-  // 4. 상태 결정
+  // 5. 상태 결정
   const totalSources = sources.length;
   let finalStatus: "success" | "partial" | "failed";
   if (totalSources === 0 || totalFailed === 0) {
@@ -119,7 +153,7 @@ export async function runIngestion(): Promise<IngestionResult> {
     finalStatus = "failed";
   }
 
-  // 5. ingestion_run 완료 기록
+  // 6. ingestion_run 완료 기록
   if (runId !== null) {
     await adminClient
       .from("ingestion_runs")
