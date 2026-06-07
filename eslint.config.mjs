@@ -24,5 +24,11 @@ export default tseslint.config(
         ...globals.node
       }
     }
+  },
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off"
+    }
   }
 );

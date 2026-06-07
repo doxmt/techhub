@@ -1,164 +1,424 @@
 import {
   ArrowUpRight,
+  Bookmark,
   BookOpen,
-  Cloud,
   Code2,
-  Filter,
-  Search
+  Grid2X2,
+  List,
+  Newspaper,
+  Search,
+  Sparkles,
+  Trophy,
 } from "lucide-react";
-import { CONTENT_CATEGORIES, CONTENT_TYPES } from "@techhub/shared";
+import { CATEGORIES, parseFeedParams } from "@techhub/shared";
+import { getFeed } from "../features/feed/server/service";
+import { getSavedFeed } from "../features/auth/server/service";
+import { FeedInfiniteScroll } from "../components/feed/feed-infinite-scroll";
+import { FeedSortFilter } from "../components/feed/feed-sort-filter";
+import { ThemeToggle } from "../components/theme-toggle";
+import { HeaderUserMenu } from "../features/auth/components/header-user-menu";
+import { createClient } from "../lib/supabase/server";
+import { cn } from "../lib/utils";
 
-const featuredItems = [
-  {
-    title: "Next.js App Router 운영 패턴",
-    description: "서버 컴포넌트와 서버 액션 경계를 설계할 때 참고할 만한 아티클",
-    source: "example.dev",
-    type: "article",
-    category: "FE",
-    language: "ko"
-  },
-  {
-    title: "AI Agents 아키텍처 입문",
-    description: "도구 호출, 메모리, 평가 흐름을 한 번에 훑는 유튜브 세션",
-    source: "youtube.com",
-    type: "youtube",
-    category: "AI Agents",
-    language: "en"
-  },
-  {
-    title: "Supabase RLS 실전 체크리스트",
-    description: "공개 읽기와 관리자 쓰기 권한을 분리하는 Postgres RLS 설계",
-    source: "supabase.com",
-    type: "article",
-    category: "BE",
-    language: "en"
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function HomePage({ searchParams }: Props) {
+  const params = await searchParams;
+  const filters = parseFeedParams(params);
+  const currentSection = filters.section ?? "news";
+  const currentView = params.view === "list" ? "list" : "grid";
+  const currentSort =
+    params.sort === "oldest" ||
+    params.sort === "views" ||
+    params.sort === "recommended"
+      ? params.sort
+      : "latest";
+  const currentPeriod =
+    params.period === "day" ||
+    params.period === "week" ||
+    params.period === "month"
+      ? params.period
+      : "all";
+
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const authUser = userData?.user ?? null;
+
+  let userProfile: { nickname: string; email: string } | null = null;
+  let isAdmin = false;
+  if (authUser) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("nickname, email, role")
+      .eq("user_id", authUser.id)
+      .single();
+    if (profile) {
+      userProfile = { nickname: profile.nickname ?? authUser.email ?? "", email: profile.email ?? authUser.email ?? "" };
+      isAdmin = profile.role === "admin";
+    } else {
+      userProfile = { nickname: authUser.email ?? "", email: authUser.email ?? "" };
+    }
   }
-];
 
-export default function HomePage() {
+  const placeholderSections = ["contest", "recommended"];
+  const { items, nextCursor } =
+    placeholderSections.includes(currentSection)
+      ? { items: [], nextCursor: null }
+      : currentSection === "saved"
+        ? authUser
+          ? await getSavedFeed({ userId: authUser.id })
+          : { items: [], nextCursor: null }
+        : await getFeed(filters, undefined, authUser?.id);
+
+  const sectionTabs = [
+    {
+      value: "news",
+      label: "최신 뉴스",
+      heading: "최신 개발 뉴스",
+      description: "개발 생태계의 중요한 소식을 빠르게 훑어봅니다.",
+      icon: Newspaper,
+    },
+    {
+      value: "article",
+      label: "아티클",
+      heading: "개발 아티클",
+      description: "실전 경험과 깊이 있는 기술 글을 모아봅니다.",
+      icon: BookOpen,
+    },
+    {
+      value: "contest",
+      label: "공모전",
+      heading: "개발자 공모전",
+      description: "해커톤, 챌린지, 공모전 정보를 준비하고 있습니다.",
+      icon: Trophy,
+    },
+    {
+      value: "recommended",
+      label: "추천",
+      heading: "추천 콘텐츠",
+      description: "운영자가 고른 개발 콘텐츠를 준비하고 있습니다.",
+      icon: Sparkles,
+    },
+    {
+      value: "saved",
+      label: "저장됨",
+      heading: "저장한 콘텐츠",
+      description: "북마크한 뉴스와 아티클을 모아볼 수 있습니다.",
+      icon: Bookmark,
+    },
+  ] as const;
+  const activeSection =
+    sectionTabs.find((tab) => tab.value === currentSection) ?? sectionTabs[0];
+  const placeholderContent = {
+    contest: {
+      icon: Trophy,
+      title: "공모전 데이터 준비중",
+      description:
+        "해커톤, 챌린지, 개발자 공모전 정보를 별도 섹션으로 모을 예정입니다. 지금은 최신 뉴스와 아티클을 먼저 탐색할 수 있습니다.",
+      previewItems: ["해커톤", "오픈소스 챌린지", "기업 기술 공모전"],
+    },
+    recommended: {
+      icon: Sparkles,
+      title: "추천 섹션 준비중",
+      description:
+        "운영자가 선별한 주요 뉴스와 아티클을 따로 모아볼 수 있게 준비하고 있습니다.",
+      previewItems: ["이번 주 주요 소식", "깊이 읽을 글", "주목할 도구"],
+    },
+  } as const;
+  const activePlaceholder =
+    currentSection === "contest" || currentSection === "recommended"
+      ? placeholderContent[currentSection]
+      : null;
+  const EmptyIcon = activePlaceholder?.icon ?? Trophy;
+  const showSavedLoginRequired = currentSection === "saved" && !authUser;
+  function baseParams() {
+    const nextParams = new URLSearchParams();
+    if (filters.q) nextParams.set("q", filters.q);
+    if (filters.category) nextParams.set("category", filters.category);
+    if (filters.lang) nextParams.set("lang", filters.lang);
+    if (currentSection !== "news") nextParams.set("section", currentSection);
+    if (currentView === "list") nextParams.set("view", currentView);
+    if (currentSort !== "latest") nextParams.set("sort", currentSort);
+    if (currentPeriod !== "all") nextParams.set("period", currentPeriod);
+    return nextParams;
+  }
+
+  function paramsHref(nextParams: URLSearchParams) {
+    const query = nextParams.toString();
+    return query.length > 0 ? `/?${query}` : "/";
+  }
+
+  function sectionHref(section: (typeof sectionTabs)[number]["value"]) {
+    const nextParams = baseParams();
+    nextParams.delete("section");
+    if (section !== "news") nextParams.set("section", section);
+    return paramsHref(nextParams);
+  }
+
+  function viewHref(view: "list" | "grid") {
+    const nextParams = baseParams();
+    nextParams.delete("view");
+    if (view === "list") nextParams.set("view", view);
+    return paramsHref(nextParams);
+  }
+
+  function categoryHref(category?: string) {
+    const nextParams = baseParams();
+    nextParams.delete("category");
+    if (category) nextParams.set("category", category);
+    return paramsHref(nextParams);
+  }
+
+  const categoryTabs = [
+    { label: "전체", slug: undefined },
+    ...CATEGORIES.map((category) => ({
+      label:
+        category.slug === "fe"
+          ? "FE"
+          : category.slug === "be"
+            ? "BE"
+            : category.name,
+      slug: category.slug,
+    })),
+  ];
+
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-950 dark:bg-neutral-950 dark:text-neutral-50">
-      <header className="border-b border-neutral-200 bg-white/90 dark:border-neutral-800 dark:bg-neutral-950/90">
+    <main className="min-h-screen bg-neutral-50 text-neutral-950 dark:bg-neutral-900 dark:text-neutral-50">
+      <header className="border-b border-neutral-200 bg-white/90 dark:border-neutral-700 dark:bg-neutral-800/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-md border border-neutral-200 bg-neutral-950 text-white dark:border-neutral-800 dark:bg-white dark:text-neutral-950">
+          <a href="/" className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-md border border-teal-200 bg-teal-600 text-white dark:border-teal-900/60 dark:bg-teal-500 dark:text-neutral-950">
               <Code2 className="size-5" aria-hidden="true" />
             </div>
             <div>
               <p className="text-sm font-semibold">TechHub</p>
-              <p className="text-xs text-neutral-500">Developer content feed</p>
+              <p className="text-xs text-neutral-500">Developer hub community</p>
             </div>
-          </div>
-          <a
-            className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            href="/admin"
-          >
-            Admin
-            <ArrowUpRight className="size-4" aria-hidden="true" />
           </a>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <HeaderUserMenu user={userProfile} />
+            {isAdmin && (
+              <a
+                className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-700/70 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                href="/admin"
+              >
+                Admin
+                <ArrowUpRight className="size-4" aria-hidden="true" />
+              </a>
+            )}
+          </div>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[240px_1fr]">
-        <aside className="h-fit rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-            <Filter className="size-4" aria-hidden="true" />
-            Filters
-          </div>
-          <div className="space-y-5">
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase text-neutral-500">
-                Category
-              </p>
-              <div className="flex flex-wrap gap-2 lg:block lg:space-y-1">
-                {CONTENT_CATEGORIES.map((category) => (
-                  <button
-                    className="rounded-md px-2 py-1 text-left text-sm text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                    key={category}
-                    type="button"
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-medium uppercase text-neutral-500">
-                Type
-              </p>
-              <div className="flex gap-2">
-                {CONTENT_TYPES.map((type) => (
-                  <button
-                    className="rounded-md border border-neutral-200 px-2 py-1 text-sm text-neutral-600 dark:border-neutral-800 dark:text-neutral-300"
-                    key={type}
-                    type="button"
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        <div className="space-y-4">
-          <div className="rounded-md border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-normal">
-                  최신 개발 콘텐츠
-                </h1>
-                <p className="mt-1 text-sm text-neutral-500">
-                  FE, BE, Cloud, Claude Code, AI Agents 자료를 한 곳에서 탐색합니다.
-                </p>
-              </div>
-              <label className="flex min-w-0 items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-500 dark:border-neutral-800">
-                <Search className="size-4 shrink-0" aria-hidden="true" />
-                <input
-                  className="min-w-0 bg-transparent outline-none placeholder:text-neutral-400"
-                  placeholder="검색어 입력"
-                  type="search"
-                />
-              </label>
-            </div>
-          </div>
-
-          <div className="grid gap-3">
-            {featuredItems.map((item) => (
-              <article
-                className="rounded-md border border-neutral-200 bg-white p-4 transition hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
-                key={item.title}
-              >
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div className="min-w-0">
-                    <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-neutral-100 px-2 py-1 dark:bg-neutral-800">
-                        {item.type === "article" ? (
-                          <BookOpen className="size-3" aria-hidden="true" />
-                        ) : (
-                          <Cloud className="size-3" aria-hidden="true" />
-                        )}
-                        {item.type}
-                      </span>
-                      <span>{item.category}</span>
-                      <span>{item.language}</span>
-                      <span>{item.source}</span>
-                    </div>
-                    <h2 className="text-base font-semibold">{item.title}</h2>
-                    <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-                      {item.description}
-                    </p>
-                  </div>
-                  <button
-                    className="inline-flex shrink-0 items-center justify-center rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                    type="button"
-                  >
-                    보기
-                  </button>
+      <section className="mx-auto max-w-7xl px-5 py-6">
+        <div>
+          <div className="mb-5 border-b border-neutral-200 pb-4 dark:border-neutral-700">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase text-teal-600 dark:text-teal-400">
+                    Developer hub
+                  </p>
+                  <h1 className="mt-1 text-2xl font-semibold tracking-normal">
+                    {activeSection.heading}
+                  </h1>
+                  <p className="mt-1 max-w-2xl text-sm text-neutral-500">
+                    {activeSection.description}
+                  </p>
                 </div>
-              </article>
-            ))}
+                <form
+                  action="/"
+                  className="flex h-10 min-w-0 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-500 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/10 dark:border-neutral-700 dark:bg-neutral-800/70 dark:focus-within:border-teal-400 lg:w-96"
+                >
+                  {currentSection !== "news" && (
+                    <input type="hidden" name="section" value={currentSection} />
+                  )}
+                  {currentView === "list" && (
+                    <input type="hidden" name="view" value={currentView} />
+                  )}
+                  {currentSort !== "latest" && (
+                    <input type="hidden" name="sort" value={currentSort} />
+                  )}
+                  {currentPeriod !== "all" && (
+                    <input type="hidden" name="period" value={currentPeriod} />
+                  )}
+                  {filters.category && (
+                    <input type="hidden" name="category" value={filters.category} />
+                  )}
+                  {filters.lang && (
+                    <input type="hidden" name="lang" value={filters.lang} />
+                  )}
+                  <Search className="size-4 shrink-0" aria-hidden="true" />
+                  <input
+                    name="q"
+                    className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-400"
+                    placeholder="뉴스, 기술명, 회사명, 태그 검색"
+                    type="search"
+                    defaultValue={filters.q ?? ""}
+                  />
+                </form>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <nav
+                  className="grid flex-1 rounded-md border border-neutral-200 bg-white p-1 dark:border-neutral-700 dark:bg-neutral-800/70 sm:grid-cols-5"
+                  aria-label="콘텐츠 섹션"
+                >
+                  {sectionTabs.map((tab) => {
+                    const isActive = currentSection === tab.value;
+                    const TabIcon = tab.icon;
+                    return (
+                      <a
+                        key={tab.value}
+                        href={sectionHref(tab.value)}
+                        aria-current={isActive ? "page" : undefined}
+                        className={cn(
+                          "flex h-9 min-w-0 items-center justify-center rounded px-3 text-sm font-medium transition",
+                          isActive
+                            ? "bg-teal-600 text-white dark:bg-teal-500 dark:text-neutral-950"
+                            : "text-neutral-600 hover:bg-teal-50 hover:text-teal-700 dark:text-neutral-300 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                        )}
+                      >
+                        <TabIcon className="mr-2 size-4 shrink-0" aria-hidden="true" />
+                        {tab.label}
+                      </a>
+                    );
+                  })}
+                </nav>
+                <div className="flex gap-2">
+                  <FeedSortFilter
+                    currentSort={currentSort}
+                    currentPeriod={currentPeriod}
+                    preservedParams={{
+                      q: filters.q,
+                      category: filters.category,
+                      lang: filters.lang,
+                      section: currentSection !== "news" ? currentSection : undefined,
+                      view: currentView === "list" ? currentView : undefined,
+                    }}
+                  />
+                  <div
+                    className="grid grid-cols-2 rounded-md border border-neutral-200 bg-white p-1 dark:border-neutral-700 dark:bg-neutral-800/70"
+                    aria-label="보기 방식"
+                  >
+                    <a
+                      href={viewHref("list")}
+                      aria-current={currentView === "list" ? "page" : undefined}
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded transition",
+                        currentView === "list"
+                          ? "bg-teal-600 text-white dark:bg-teal-500 dark:text-neutral-950"
+                          : "text-neutral-600 hover:bg-teal-50 hover:text-teal-700 dark:text-neutral-300 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                      )}
+                    >
+                      <List className="size-4" aria-hidden="true" />
+                      <span className="sr-only">한 줄 보기</span>
+                    </a>
+                    <a
+                      href={viewHref("grid")}
+                      aria-current={currentView === "grid" ? "page" : undefined}
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded transition",
+                        currentView === "grid"
+                          ? "bg-teal-600 text-white dark:bg-teal-500 dark:text-neutral-950"
+                          : "text-neutral-600 hover:bg-teal-50 hover:text-teal-700 dark:text-neutral-300 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                      )}
+                    >
+                      <Grid2X2 className="size-4" aria-hidden="true" />
+                      <span className="sr-only">4개씩 보기</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+              {currentSection === "article" && (
+                <nav
+                  aria-label="아티클 주제"
+                  className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                >
+                  {categoryTabs.map((category) => {
+                    const isActive =
+                      category.slug === undefined
+                        ? filters.category === undefined
+                        : filters.category === category.slug;
+                    return (
+                      <a
+                        key={category.slug ?? "all"}
+                        href={categoryHref(category.slug)}
+                        aria-current={isActive ? "page" : undefined}
+                        className={cn(
+                          "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                          isActive
+                            ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                            : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                        )}
+                      >
+                        {category.label}
+                      </a>
+                    );
+                  })}
+                </nav>
+              )}
+            </div>
           </div>
+          {activePlaceholder ? (
+            <section className="rounded-md border border-dashed border-neutral-300 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800/60">
+              <div className="mb-4 flex size-11 items-center justify-center rounded-md bg-teal-50 dark:bg-teal-950/40">
+                <EmptyIcon className="size-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              </div>
+              <h2 className="text-lg font-semibold">{activePlaceholder.title}</h2>
+              <p className="mt-2 max-w-xl text-sm text-neutral-500">
+                {activePlaceholder.description}
+              </p>
+              <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                {activePlaceholder.previewItems.map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5">
+                <a
+                  href={sectionHref("news")}
+                  className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  최신 뉴스 보기
+                  <ArrowUpRight className="size-4" aria-hidden="true" />
+                </a>
+              </div>
+            </section>
+          ) : showSavedLoginRequired ? (
+            <section className="rounded-md border border-dashed border-neutral-300 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800/60">
+              <div className="mb-4 flex size-11 items-center justify-center rounded-md bg-teal-50 dark:bg-teal-950/40">
+                <Bookmark className="size-5 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+              </div>
+              <h2 className="text-lg font-semibold">로그인이 필요합니다</h2>
+              <p className="mt-2 max-w-xl text-sm text-neutral-500">
+                저장한 콘텐츠를 보려면 로그인해 주세요. 로그인 후 북마크한 뉴스와 아티클을 이곳에서 확인할 수 있습니다.
+              </p>
+              <div className="mt-5">
+                <a
+                  href={sectionHref("news")}
+                  className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  최신 뉴스 보기
+                  <ArrowUpRight className="size-4" aria-hidden="true" />
+                </a>
+              </div>
+            </section>
+          ) : (
+            <FeedInfiniteScroll
+              initialItems={items}
+              nextCursor={nextCursor}
+              filters={filters}
+              view={currentView}
+              isLoggedIn={!!authUser}
+            />
+          )}
         </div>
       </section>
     </main>
