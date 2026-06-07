@@ -23,10 +23,30 @@
 ├── apps
 │   └── web
 │       ├── app
+│       │   ├── [slug-id]/        # 콘텐츠 상세 페이지
+│       │   ├── admin/            # 관리자 전용 (role='admin')
+│       │   ├── profile/          # 마이페이지 (로그인 필수)
+│       │   ├── layout.tsx
+│       │   └── page.tsx          # 공개 피드 홈
 │       ├── components
+│       │   ├── feed/             # FeedInfiniteScroll, ContentCard, ContentActions 등
+│       │   └── ui/               # shadcn/ui 컴포넌트
 │       ├── features
+│       │   ├── auth/
+│       │   │   ├── components/   # AuthDialog, HeaderUserMenu, ProfileClient
+│       │   │   └── server/       # actions.ts, profile-actions.ts, schema.ts, service.ts
+│       │   └── feed/
+│       │       └── server/       # service.ts, actions.ts
 │       ├── lib
-│       └── tests
+│       │   └── supabase/
+│       │       ├── client.ts     # 브라우저 클라이언트
+│       │       ├── server.ts     # 서버 클라이언트 (anon key)
+│       │       ├── middleware.ts # 세션 갱신 헬퍼
+│       │       └── admin.ts      # 서버 관리 클라이언트 (service role key)
+│       ├── middleware.ts          # Next.js 미들웨어 (세션 갱신)
+│       └── tests/
+│           ├── unit/
+│           └── e2e/
 ├── packages
 │   └── shared
 │       └── src
@@ -47,6 +67,7 @@
 - `packages/shared`에는 타입, 상수, 순수 유틸만 둔다.
 - Supabase client, 서버 전용 로직, UI 컴포넌트는 `apps/web` 안에 둔다.
 - 권한은 서버 체크와 Supabase RLS를 둘 다 사용한다.
+- 관리자 전용 작업(계정 삭제 등)은 `lib/supabase/admin.ts`의 service role client를 사용한다.
 
 ## 데이터 흐름
 
@@ -56,11 +77,11 @@
 사용자 요청
 → Next.js Server Component
 → URL query 파싱
-→ feature service
+→ feature service (userId 있으면 isBookmarked/isLiked 병합)
 → Supabase Postgres FTS/섹션/주제/언어 필터 쿼리
 → published 콘텐츠만 반환
-→ 피드 렌더링
-→ 무한 스크롤로 다음 cursor 요청
+→ 피드 렌더링 (isLoggedIn prop threading)
+→ 무한 스크롤로 다음 cursor 요청 (loadMoreFeed에서 유저 세션 조회)
 ```
 
 ### RSS/API 수집
@@ -80,7 +101,7 @@ Vercel Cron
 
 ```text
 GitHub OAuth 관리자 로그인
-→ 소스/콘텐츠 관리 화면
+→ 소스/콘텐츠 관리 화면 (profiles.role='admin' 확인)
 → Server Action 또는 Route Handler
 → 관리자 권한 서버 체크
 → Supabase insert/update/delete
@@ -91,12 +112,23 @@ GitHub OAuth 관리자 로그인
 ### 인증/권한
 
 ```text
-GitHub OAuth
-→ Supabase Auth session
+이메일/비밀번호 회원가입·로그인
+→ Supabase Auth session (이메일 인증 없이 즉시 세션)
+→ handle_new_user 트리거 → profiles 자동 생성 (role='viewer')
 → @supabase/ssr 쿠키 기반 session 처리
-→ profiles/admin allowlist 확인
-→ 관리자 화면 및 Server Action 접근 허용
+→ Next.js middleware에서 세션 갱신 (getUser)
+→ profiles.role 확인 → 관리자 화면 및 Server Action 접근
 → RLS policy로 DB 쓰기 권한 최종 보장
+```
+
+### 마이페이지
+
+```text
+로그인 사용자 → /profile
+→ Server Component에서 getUser() + profiles 조회
+→ 비로그인 시 redirect('/')
+→ 닉네임 수정 / 비밀번호 변경: Server Action → Supabase Auth updateUser
+→ 계정 탈퇴: Server Action → admin client deleteUser → signOut → redirect('/')
 ```
 
 ## 데이터 모델
@@ -106,9 +138,11 @@ GitHub OAuth
 - `tags`: 자유 태그
 - `content_categories`: 콘텐츠와 카테고리 연결
 - `content_tags`: 콘텐츠와 태그 연결
+- `bookmarks`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
+- `likes`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
 - `sources` (예정): RSS/API 소스 이름, URL, 소스 타입, 기본 섹션, 기본 언어, 활성 상태, 마지막 수집 시각
 - `ingestion_runs` (예정): 수집 시작/종료 시각, 상태, 처리/생성/스킵/실패 건수, 오류 메시지
-- `profiles`: Supabase 사용자 id, 이메일, role
+- `profiles`: Supabase 사용자 id, 이메일, nickname(최대 20자), role('viewer'|'admin'), created_at
 
 ## 분류 원칙
 
