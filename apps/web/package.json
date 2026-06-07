@@ -27,6 +27,7 @@
     "next-themes": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "rss-parser": "^3.13.0",
     "sonner": "latest",
     "tailwind-merge": "latest",
     "zod": "latest"
