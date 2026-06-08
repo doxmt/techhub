@@ -1,0 +1,50 @@
+export type OgMeta = {
+  image: string | null;
+  description: string | null;
+};
+
+const FETCH_TIMEOUT_MS = 8_000;
+
+function extractAttr(html: string, patterns: RegExp[]): string | null {
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return null;
+}
+
+export function extractOgMeta(html: string): OgMeta {
+  const image = extractAttr(html, [
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i,
+  ]);
+
+  const description = extractAttr(html, [
+    /<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:description["']/i,
+    /<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i,
+  ]);
+
+  return { image, description };
+}
+
+export async function fetchOgMeta(url: string): Promise<OgMeta> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "TechHub/1.0 (OG metadata fetcher)" },
+    });
+    if (!response.ok) return { image: null, description: null };
+    const html = await response.text();
+    return extractOgMeta(html);
+  } catch {
+    return { image: null, description: null };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
