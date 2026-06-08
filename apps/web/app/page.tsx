@@ -1,4 +1,5 @@
 import {
+  ArrowUpRight,
   Bookmark,
   BookOpen,
   Code2,
