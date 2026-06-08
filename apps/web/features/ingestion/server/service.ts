@@ -1,5 +1,6 @@
 import { createAdminClient } from "../../../lib/supabase/admin";
-import { parseRssFeed, normalizeItem, type IngestionSource } from "./parser";
+import { getAdapter, type FeedAdapter } from "./adapters";
+import type { IngestionSource } from "./parser";
 import { classifyCategory } from "./classify";
 
 const MAX_ITEMS_PER_SOURCE = 30;
@@ -59,43 +60,38 @@ export async function runIngestion(): Promise<IngestionResult> {
   // 4. 소스별 순회
   for (const source of sources as IngestionSource[]) {
     try {
-      // fetch with timeout
+      let adapter: FeedAdapter;
+      try {
+        adapter = getAdapter(source.feed_type);
+      } catch {
+        totalFailed += 1;
+        continue;
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-      let xml: string;
+      let allPayloads: Awaited<ReturnType<FeedAdapter>>;
       try {
-        const response = await fetch(source.feed_url, { signal: controller.signal });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        xml = await response.text();
+        allPayloads = await adapter(source, controller.signal);
       } finally {
         clearTimeout(timeoutId);
       }
 
-      // 파싱
-      const items = await parseRssFeed(xml);
-      const limited = items.slice(0, MAX_ITEMS_PER_SOURCE);
+      const payloads = allPayloads.slice(0, MAX_ITEMS_PER_SOURCE);
 
-      if (limited.length === 0) {
-        // 빈 피드 → 이 소스는 성공
-        // last_ingested_at 갱신 시도 (실패해도 무관)
+      if (payloads.length === 0) {
         void updateLastIngested(adminClient, source.id);
         continue;
       }
 
-      // 정규화 (link가 있는 항목만)
-      const payloads = limited
-        .filter((item) => item.link)
-        .map((item) => normalizeItem(item, source));
-
       totalProcessed += payloads.length;
 
-      // insert-only (ON CONFLICT (url) DO NOTHING)
+      // insert-only (ON CONFLICT (url) DO NOTHING), select id for category linking
       const insertResult = await adminClient
         .from("content_items")
-        .insert(payloads as Parameters<ReturnType<typeof adminClient.from>["insert"]>[0]);
+        .insert(payloads as Parameters<ReturnType<typeof adminClient.from>["insert"]>[0])
+        .select("id");
 
       const { data: insertData, error: insertError, count } = insertResult as {
         data: Array<unknown> | null;

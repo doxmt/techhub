@@ -437,6 +437,42 @@ describe("normalizeItem", () => {
     });
   });
 
+  describe("description 필드 — content:encoded / summary fallback", () => {
+    it("content:encoded 필드가 있으면 description으로 사용한다", () => {
+      const item = {
+        title: "테스트",
+        link: "https://tech.kakao.com/test/",
+        pubDate: "Mon, 15 Jan 2026 09:00:00 +0000",
+        "content:encoded": "<p>content:encoded에서 가져온 내용입니다.</p>",
+      };
+      const payload = normalizeItem(item, SOURCE_KAKAO);
+      expect(payload.description).toContain("content:encoded에서 가져온 내용");
+      expect(payload.description).not.toContain("<p>");
+    });
+
+    it("content:encodedSnippet 필드가 있으면 이미 stripped된 텍스트를 우선 사용한다", () => {
+      const item = {
+        title: "테스트",
+        link: "https://tech.kakao.com/test/",
+        pubDate: "Mon, 15 Jan 2026 09:00:00 +0000",
+        "content:encodedSnippet": "스니펫 텍스트",
+        "content:encoded": "<p>원본 HTML</p>",
+      };
+      const payload = normalizeItem(item, SOURCE_KAKAO);
+      expect(payload.description).toBe("스니펫 텍스트");
+    });
+
+    it("summary 필드만 있으면 description으로 사용한다 (Atom 피드)", () => {
+      const item = {
+        title: "자바스크립트 엔진 최적화 기법",
+        link: "https://d2.naver.com/helloworld/js-engine-opt",
+        summary: "V8 엔진의 최적화 전략을 분석합니다.",
+      };
+      const payload = normalizeItem(item, SOURCE_NAVER);
+      expect(payload.description).toBe("V8 엔진의 최적화 전략을 분석합니다.");
+    });
+  });
+
   describe("필수 필드 존재 검증", () => {
     it("normalizeItem 결과에 content_items insert에 필요한 모든 필드가 존재한다", () => {
       const item = { title: "Kotlin 코루틴 완전 정복", link: "https://tech.kakao.com/2026/01/15/kotlin-coroutines/", pubDate: "Mon, 15 Jan 2026 09:00:00 +0000", description: "설명" };

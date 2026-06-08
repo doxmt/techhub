@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   Bookmark,
   BookOpen,
   Code2,
@@ -47,16 +46,14 @@ export default async function HomePage({ searchParams }: Props) {
   const authUser = userData?.user ?? null;
 
   let userProfile: { nickname: string; email: string } | null = null;
-  let isAdmin = false;
   if (authUser) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("nickname, email, role")
+      .select("nickname, email")
       .eq("user_id", authUser.id)
       .single();
     if (profile) {
       userProfile = { nickname: profile.nickname ?? authUser.email ?? "", email: profile.email ?? authUser.email ?? "" };
-      isAdmin = profile.role === "admin";
     } else {
       userProfile = { nickname: authUser.email ?? "", email: authUser.email ?? "" };
     }
@@ -200,15 +197,6 @@ export default async function HomePage({ searchParams }: Props) {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <HeaderUserMenu user={userProfile} />
-            {isAdmin && (
-              <a
-                className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-700/70 dark:text-neutral-100 dark:hover:bg-neutral-700"
-                href="/admin"
-              >
-                Admin
-                <ArrowUpRight className="size-4" aria-hidden="true" />
-              </a>
-            )}
           </div>
         </div>
       </header>
