@@ -98,7 +98,8 @@ export async function runIngestion(): Promise<IngestionResult> {
       totalProcessed += payloads.length;
 
       // rssCategories는 DB 컬럼이 아니므로 insert 전에 제거
-      const dbPayloads = payloads.map(({ rssCategories: _, ...rest }) => rest);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const dbPayloads = payloads.map(({ rssCategories, ...rest }) => rest);
 
       // insert-only (ON CONFLICT (url) DO NOTHING), select id for category linking
       const insertResult = await adminClient
