@@ -10,7 +10,7 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
-import { CATEGORIES, parseFeedParams } from "@techhub/shared";
+import { CATEGORIES, SOURCES, parseFeedParams } from "@techhub/shared";
 import { getFeed } from "../features/feed/server/service";
 import { getSavedFeed } from "../features/auth/server/service";
 import { FeedInfiniteScroll } from "../components/feed/feed-infinite-scroll";
@@ -131,10 +131,15 @@ export default async function HomePage({ searchParams }: Props) {
       : null;
   const EmptyIcon = activePlaceholder?.icon ?? Trophy;
   const showSavedLoginRequired = currentSection === "saved" && !authUser;
+
+  const currentCategories = filters.categories ?? [];
+  const currentSource = filters.source;
+
   function baseParams() {
     const nextParams = new URLSearchParams();
     if (filters.q) nextParams.set("q", filters.q);
-    if (filters.category) nextParams.set("category", filters.category);
+    if (currentCategories.length > 0) nextParams.set("categories", currentCategories.join(","));
+    if (currentSource) nextParams.set("source", currentSource);
     if (filters.lang) nextParams.set("lang", filters.lang);
     if (currentSection !== "news") nextParams.set("section", currentSection);
     if (currentView === "list") nextParams.set("view", currentView);
@@ -162,25 +167,31 @@ export default async function HomePage({ searchParams }: Props) {
     return paramsHref(nextParams);
   }
 
-  function categoryHref(category?: string) {
+  function sourceHref(source?: string) {
     const nextParams = baseParams();
-    nextParams.delete("category");
-    if (category) nextParams.set("category", category);
+    nextParams.delete("source");
+    if (source) nextParams.set("source", source);
     return paramsHref(nextParams);
   }
 
-  const categoryTabs = [
-    { label: "전체", slug: undefined },
-    ...CATEGORIES.map((category) => ({
-      label:
-        category.slug === "fe"
-          ? "FE"
-          : category.slug === "be"
-            ? "BE"
-            : category.name,
-      slug: category.slug,
-    })),
-  ];
+  function toggleCategoryHref(slug: string) {
+    const nextParams = baseParams();
+    const cats = currentCategories as string[];
+    if (cats.includes(slug)) {
+      const updated = cats.filter((c) => c !== slug);
+      if (updated.length > 0) nextParams.set("categories", updated.join(","));
+      else nextParams.delete("categories");
+    } else if (cats.length < 3) {
+      nextParams.set("categories", [...cats, slug].join(","));
+    }
+    return paramsHref(nextParams);
+  }
+
+  function clearCategoriesHref() {
+    const nextParams = baseParams();
+    nextParams.delete("categories");
+    return paramsHref(nextParams);
+  }
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950 dark:bg-neutral-900 dark:text-neutral-50">
@@ -234,8 +245,11 @@ export default async function HomePage({ searchParams }: Props) {
                   {currentPeriod !== "all" && (
                     <input type="hidden" name="period" value={currentPeriod} />
                   )}
-                  {filters.category && (
-                    <input type="hidden" name="category" value={filters.category} />
+                  {currentCategories.length > 0 && (
+                    <input type="hidden" name="categories" value={currentCategories.join(",")} />
+                  )}
+                  {currentSource && (
+                    <input type="hidden" name="source" value={currentSource} />
                   )}
                   {filters.lang && (
                     <input type="hidden" name="lang" value={filters.lang} />
@@ -282,7 +296,8 @@ export default async function HomePage({ searchParams }: Props) {
                     currentPeriod={currentPeriod}
                     preservedParams={{
                       q: filters.q,
-                      category: filters.category,
+                      categories: currentCategories.length > 0 ? currentCategories.join(",") : undefined,
+                      source: currentSource,
                       lang: filters.lang,
                       section: currentSection !== "news" ? currentSection : undefined,
                       view: currentView === "list" ? currentView : undefined,
@@ -321,34 +336,89 @@ export default async function HomePage({ searchParams }: Props) {
                   </div>
                 </div>
               </div>
-              {currentSection === "article" && (
-                <nav
-                  aria-label="아티클 주제"
-                  className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+
+              {/* 출처 필터 — 단일 선택 */}
+              <nav
+                aria-label="출처"
+                className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+              >
+                <a
+                  href={sourceHref(undefined)}
+                  aria-current={!currentSource ? "page" : undefined}
+                  className={cn(
+                    "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                    !currentSource
+                      ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                      : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                  )}
                 >
-                  {categoryTabs.map((category) => {
-                    const isActive =
-                      category.slug === undefined
-                        ? filters.category === undefined
-                        : filters.category === category.slug;
-                    return (
-                      <a
-                        key={category.slug ?? "all"}
-                        href={categoryHref(category.slug)}
-                        aria-current={isActive ? "page" : undefined}
-                        className={cn(
-                          "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
-                          isActive
-                            ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                  전체
+                </a>
+                {SOURCES.map((source) => {
+                  const isActive = currentSource === source;
+                  return (
+                    <a
+                      key={source}
+                      href={sourceHref(isActive ? undefined : source)}
+                      aria-current={isActive ? "page" : undefined}
+                      className={cn(
+                        "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                        isActive
+                          ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                          : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                      )}
+                    >
+                      {source}
+                    </a>
+                  );
+                })}
+              </nav>
+
+              {/* 주제 필터 — 최대 3개 선택 */}
+              <nav
+                aria-label="주제"
+                className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+              >
+                <a
+                  href={clearCategoriesHref()}
+                  aria-current={currentCategories.length === 0 ? "page" : undefined}
+                  className={cn(
+                    "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                    currentCategories.length === 0
+                      ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                      : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                  )}
+                >
+                  전체
+                </a>
+                {CATEGORIES.map((category) => {
+                  const isActive = currentCategories.includes(category.slug);
+                  const isDisabled = !isActive && currentCategories.length >= 3;
+                  return (
+                    <a
+                      key={category.slug}
+                      href={isDisabled ? "#" : toggleCategoryHref(category.slug)}
+                      aria-current={isActive ? "page" : undefined}
+                      aria-disabled={isDisabled}
+                      className={cn(
+                        "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                        isActive
+                          ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                          : isDisabled
+                            ? "cursor-not-allowed border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-600"
                             : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
-                        )}
-                      >
-                        {category.label}
-                      </a>
-                    );
-                  })}
-                </nav>
-              )}
+                      )}
+                    >
+                      {category.name}
+                    </a>
+                  );
+                })}
+                {currentCategories.length > 0 && (
+                  <span className="inline-flex h-8 shrink-0 items-center px-1 text-xs text-neutral-400">
+                    {currentCategories.length}/3
+                  </span>
+                )}
+              </nav>
             </div>
           </div>
           {activePlaceholder ? (

@@ -41,7 +41,16 @@ export async function fetchOgMeta(url: string): Promise<OgMeta> {
     });
     if (!response.ok) return { image: null, description: null };
     const html = await response.text();
-    return extractOgMeta(html);
+    const meta = extractOgMeta(html);
+    // 상대경로를 절대경로로 변환
+    if (meta.image && !meta.image.startsWith("http")) {
+      try {
+        meta.image = new URL(meta.image, url).href;
+      } catch {
+        meta.image = null;
+      }
+    }
+    return meta;
   } catch {
     return { image: null, description: null };
   } finally {

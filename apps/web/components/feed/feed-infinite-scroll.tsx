@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpRight, Bookmark, Eye, ThumbsUp, X } from "lucide-react";
 import { ContentCard } from "./content-card";
+import { ThumbnailImage } from "./thumbnail-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { loadMoreFeed } from "@/features/feed/server/actions";
 import { toggleBookmark, toggleLike } from "@/features/auth/server/actions";
@@ -12,7 +13,8 @@ import { cn } from "@/lib/utils";
 
 type Filters = {
   q?: string;
-  category?: string;
+  categories?: string[];
+  source?: string;
   type?: string;
   lang?: string;
   section?: string;
@@ -62,7 +64,11 @@ export function FeedInfiniteScroll({
     if (!cursor) return;
     setIsLoading(true);
     try {
-      const result = await loadMoreFeed({ cursor, ...filters });
+      const result = await loadMoreFeed({
+        cursor,
+        ...filters,
+        categories: filters.categories?.join(","),
+      });
       setItems((prev) => [...prev, ...result.items]);
       setCursor(result.nextCursor);
     } finally {
@@ -195,15 +201,15 @@ function ContentPreviewModal({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="relative bg-neutral-900">
-          {item.thumbnailUrl ? (
-            <img
-              src={item.thumbnailUrl}
-              alt=""
-              className="aspect-[16/9] max-h-[36vh] w-full object-cover"
-            />
-          ) : (
-            <div className="aspect-[16/9] max-h-[36vh] w-full bg-neutral-800" />
-          )}
+          <div className="aspect-[16/9] max-h-[36vh] w-full">
+            {item.thumbnailUrl ? (
+              <ThumbnailImage src={item.thumbnailUrl} alt="" source={item.source ?? ""} />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-neutral-900">
+                <span className="text-sm font-semibold text-neutral-600">{item.source}</span>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}

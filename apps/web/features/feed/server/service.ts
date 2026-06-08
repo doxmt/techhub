@@ -22,7 +22,8 @@ export type FeedItem = {
 
 export type FeedFilters = {
   q?: string;
-  category?: string;
+  categories?: string[];
+  source?: string;
   type?: ContentType;
   lang?: string;
   section?: FeedSection;
@@ -73,7 +74,8 @@ export async function getFeed(
   userId?: string,
 ): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
   const supabase = await createClient();
-  const relationSelect = filters.category
+  const hasCategories = filters.categories && filters.categories.length > 0;
+  const relationSelect = hasCategories
     ? `content_categories!inner(categories!inner(name, slug)),
       content_tags(tags(name))`
     : `content_categories(categories(name, slug)),
@@ -122,8 +124,12 @@ export async function getFeed(
     query = query.eq("language", filters.lang);
   }
 
-  if (filters.category) {
-    query = query.eq("content_categories.categories.slug", filters.category);
+  if (filters.categories && filters.categories.length > 0) {
+    query = query.in("content_categories.categories.slug", filters.categories);
+  }
+
+  if (filters.source) {
+    query = query.eq("source", filters.source);
   }
 
   const { data, error } = await query;

@@ -15,6 +15,10 @@ export type FeedItem = {
   summary?: string;
   enclosure?: { url?: string };
   "media:content"?: { $?: { url?: string } };
+  // 카카오 테크 전용 <thumbnail> 태그
+  thumbnail?: string;
+  // rss-parser가 <category> 태그를 자동으로 파싱해주는 필드
+  categories?: string[];
 };
 
 export type IngestionSource = {
@@ -36,6 +40,8 @@ export type ContentItemInsert = {
   language: "ko" | "en";
   status: "published";
   published_at: string;
+  // DB 컬럼 아님 — 분류 시 가중치 점수에 사용되는 RSS <category> 원본값
+  rssCategories?: string[];
 };
 
 const parser = new Parser<Record<string, unknown>, FeedItem>({
@@ -44,6 +50,7 @@ const parser = new Parser<Record<string, unknown>, FeedItem>({
       ["media:content", "media:content"],
       ["enclosure", "enclosure"],
       ["description", "description"],
+      ["thumbnail", "thumbnail"],
     ],
   },
 });
@@ -137,8 +144,17 @@ export function normalizeItem(item: FeedItem, source: IngestionSource): ContentI
     plainText?.trim() ||
     (rawHtml ? stripHtml(rawHtml).trim() || null : null);
 
-  const mediaUrl = item["media:content"]?.$?.url ?? item.enclosure?.url ?? null;
-  const thumbnail = mediaUrl ?? (rawHtml ? extractThumbnail(rawHtml) ?? null : null);
+  const mediaUrl = item["media:content"]?.$?.url ?? item.enclosure?.url ?? item.thumbnail ?? null;
+  let thumbnail = mediaUrl ?? (rawHtml ? extractThumbnail(rawHtml) ?? null : null);
+
+  // 상대경로 썸네일을 절대경로로 변환
+  if (thumbnail && !thumbnail.startsWith("http")) {
+    try {
+      thumbnail = new URL(thumbnail, cleanUrl).href;
+    } catch {
+      thumbnail = null;
+    }
+  }
 
   let publishedAt: string;
   if (item.pubDate && item.pubDate.trim() !== "") {
@@ -159,5 +175,6 @@ export function normalizeItem(item: FeedItem, source: IngestionSource): ContentI
     language: source.default_language,
     status: "published",
     published_at: publishedAt,
+    rssCategories: item.categories?.filter(Boolean) ?? [],
   };
 }

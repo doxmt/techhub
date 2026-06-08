@@ -1,5 +1,5 @@
 import { createAdminClient } from "../../../lib/supabase/admin";
-import { classifyCategory } from "./classify";
+import { classifyCategories } from "./classify";
 
 const WOOWAHAN_API =
   "https://techblog.woowahan.com/wp-json/wp/v2/posts?per_page=100&_fields=id,title,link,date,excerpt";
@@ -111,15 +111,19 @@ export async function runWoowahBackfill(): Promise<{
       totalCreated += 1;
 
       // 카테고리 연결
-      const categorySlug = classifyCategory(title, description);
-      const categoryId = categorySlug ? categoryMap.get(categorySlug) : undefined;
-
-      if (categoryId !== undefined && inserted[0]) {
+      const slugs = classifyCategories({ title, description });
+      if (inserted[0] && slugs.length > 0) {
         const contentId = (inserted[0] as { id: number }).id;
-        await adminClient.from("content_categories").insert({
-          content_id: contentId,
-          category_id: categoryId,
-        });
+        const categoryInserts = slugs
+          .map((slug) => {
+            const categoryId = categoryMap.get(slug);
+            if (!categoryId) return null;
+            return { content_id: contentId, category_id: categoryId };
+          })
+          .filter((x): x is { content_id: number; category_id: number } => x !== null);
+        if (categoryInserts.length > 0) {
+          await adminClient.from("content_categories").insert(categoryInserts);
+        }
       }
     }
 
