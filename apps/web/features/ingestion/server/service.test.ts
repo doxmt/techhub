@@ -290,8 +290,8 @@ describe("runIngestion — 부분 실패 처리", () => {
 
     const result = await runIngestion();
 
-    // 두 소스 모두 시도했는지 확인
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // 두 소스 모두 시도했는지 확인 (OG 폴백 fetch가 추가될 수 있음)
+    expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(2);
     // 성공한 소스의 결과가 반영된다
     expect(result.created).toBeGreaterThanOrEqual(0);
   });

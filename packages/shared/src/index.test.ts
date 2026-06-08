@@ -3,7 +3,9 @@ import { CONTENT_CATEGORIES, CONTENT_TYPES, createSlug } from ".";
 
 describe("shared constants", () => {
   it("contains the initial TechHub categories and content types", () => {
-    expect(CONTENT_CATEGORIES).toContain("Claude Code");
+    expect(CONTENT_CATEGORIES).toContain("Frontend");
+    expect(CONTENT_CATEGORIES).toContain("LLM/GenAI");
+    expect(CONTENT_CATEGORIES).toContain("AI Agents");
     expect(CONTENT_TYPES).toEqual(["article", "youtube"]);
   });
 });

@@ -2,6 +2,7 @@ import { Eye, ThumbsUp } from "lucide-react";
 import type { FeedItem } from "@/features/feed/server/service";
 import { cn } from "@/lib/utils";
 import { ContentActions } from "./content-actions";
+import { ThumbnailImage } from "./thumbnail-image";
 
 type Props = {
   item: FeedItem;
@@ -21,7 +22,6 @@ function formatDate(value: string) {
 
 
 export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = false }: Props) {
-  const detailUrl = `/${item.slug}-${item.id}`;
   const isPreviewEnabled = Boolean(onPreview);
   const typeLabel = item.type === "article" ? "아티클" : "영상";
   const formattedDate = formatDate(item.publishedAt);
@@ -67,35 +67,37 @@ export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = fa
         {isPreviewEnabled ? (
           <div className="block h-full w-full" aria-hidden="true">
             {item.thumbnailUrl ? (
-              <img
-                src={item.thumbnailUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
+              <ThumbnailImage src={item.thumbnailUrl} alt="" source={item.source ?? ""} />
             ) : (
               <div
                 data-testid="thumbnail-placeholder"
-                className="h-full w-full bg-neutral-100 dark:bg-neutral-700/70"
-              />
+                className="flex h-full w-full items-center justify-center bg-neutral-900"
+              >
+                <span className="text-sm font-semibold text-neutral-600">
+                  {item.source}
+                </span>
+              </div>
             )}
           </div>
         ) : (
           <a
-            href={detailUrl}
-            aria-label={`${item.title} 상세 보기`}
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${item.title} 원문 보기`}
             className="block h-full w-full"
           >
             {item.thumbnailUrl ? (
-              <img
-                src={item.thumbnailUrl}
-                alt={item.title}
-                className="h-full w-full object-cover"
-              />
+              <ThumbnailImage src={item.thumbnailUrl} alt={item.title ?? ""} source={item.source ?? ""} />
             ) : (
               <div
                 data-testid="thumbnail-placeholder"
-                className="h-full w-full bg-neutral-100 dark:bg-neutral-700/70"
-              />
+                className="flex h-full w-full items-center justify-center bg-neutral-900"
+              >
+                <span className="text-sm font-semibold text-neutral-600">
+                  {item.source}
+                </span>
+              </div>
             )}
           </a>
         )}
@@ -124,7 +126,9 @@ export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = fa
               <span>{item.title}</span>
             ) : (
               <a
-                href={detailUrl}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="hover:text-teal-700 dark:hover:text-teal-300"
               >
                 {item.title}

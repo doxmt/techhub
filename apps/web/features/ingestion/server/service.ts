@@ -1,7 +1,8 @@
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { getAdapter, type FeedAdapter } from "./adapters";
 import type { IngestionSource } from "./parser";
-import { classifyCategory } from "./classify";
+import { classifyCategories } from "./classify";
+import { fetchOgMeta } from "./og-scraper";
 
 const MAX_ITEMS_PER_SOURCE = 30;
 const FETCH_TIMEOUT_MS = 10_000;
@@ -78,7 +79,16 @@ export async function runIngestion(): Promise<IngestionResult> {
         clearTimeout(timeoutId);
       }
 
-      const payloads = allPayloads.slice(0, MAX_ITEMS_PER_SOURCE);
+      const rawPayloads = allPayloads.slice(0, MAX_ITEMS_PER_SOURCE);
+
+      // 썸네일 없는 항목: OG 이미지 병렬 폴백
+      const payloads = await Promise.all(
+        rawPayloads.map(async (payload) => {
+          if (payload.thumbnail || !payload.url) return payload;
+          const { image } = await fetchOgMeta(payload.url);
+          return image ? { ...payload, thumbnail: image } : payload;
+        }),
+      );
 
       if (payloads.length === 0) {
         void updateLastIngested(adminClient, source.id);
@@ -87,10 +97,14 @@ export async function runIngestion(): Promise<IngestionResult> {
 
       totalProcessed += payloads.length;
 
+      // rssCategories는 DB 컬럼이 아니므로 insert 전에 제거
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const dbPayloads = payloads.map(({ rssCategories, ...rest }) => rest);
+
       // insert-only (ON CONFLICT (url) DO NOTHING), select id for category linking
       const insertResult = await adminClient
         .from("content_items")
-        .insert(payloads as Parameters<ReturnType<typeof adminClient.from>["insert"]>[0])
+        .insert(dbPayloads as Parameters<ReturnType<typeof adminClient.from>["insert"]>[0])
         .select("id");
 
       const { data: insertData, error: insertError, count } = insertResult as {
@@ -116,15 +130,22 @@ export async function runIngestion(): Promise<IngestionResult> {
       // 카테고리 연결 (data에 id가 있을 때만)
       if (Array.isArray(insertData) && insertData.length > 0 && categoryMap.size > 0) {
         const categoryInserts = (insertData as Array<{ id: number }>)
-          .map((item, idx) => {
+          .flatMap((item, idx) => {
             const payload = payloads[idx];
-            if (!payload) return null;
-            const slug = classifyCategory(payload.title ?? "", payload.description);
-            const categoryId = slug ? categoryMap.get(slug) : undefined;
-            if (categoryId === undefined) return null;
-            return { content_id: item.id, category_id: categoryId };
-          })
-          .filter((x): x is { content_id: number; category_id: number } => x !== null);
+            if (!payload) return [];
+            const slugs = classifyCategories({
+              title: payload.title ?? "",
+              description: payload.description,
+              rssCategories: payload.rssCategories,
+            });
+            return slugs
+              .map((slug) => {
+                const categoryId = categoryMap.get(slug);
+                if (!categoryId) return null;
+                return { content_id: item.id, category_id: categoryId };
+              })
+              .filter((x): x is { content_id: number; category_id: number } => x !== null);
+          });
 
         if (categoryInserts.length > 0) {
           void adminClient.from("content_categories").insert(categoryInserts);
