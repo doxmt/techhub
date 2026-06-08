@@ -87,7 +87,9 @@ function makeAdminClientMock(options: {
       const result = insertResults[insertCallIndex] ?? { data: null, error: null, count: 0 };
       insertCallIndex++;
       return {
-        insert: vi.fn().mockResolvedValue(result),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockResolvedValue(result),
+        }),
       };
     }
     return {

@@ -35,8 +35,10 @@
 │       │   ├── auth/
 │       │   │   ├── components/   # AuthDialog, HeaderUserMenu, ProfileClient
 │       │   │   └── server/       # actions.ts, profile-actions.ts, schema.ts, service.ts
-│       │   └── feed/
-│       │       └── server/       # service.ts, actions.ts
+│       │   ├── feed/
+│       │   │   └── server/       # service.ts, actions.ts
+│       │   └── ingestion/
+│       │       └── server/       # service.ts, parser.ts, classify.ts, backfill.ts
 │       ├── lib
 │       │   └── supabase/
 │       │       ├── client.ts     # 브라우저 클라이언트
@@ -86,15 +88,66 @@
 
 ### RSS/API 수집
 
+#### 원칙
+
+- 브라우저에서 외부 RSS/API를 직접 fetch하지 않는다.
+- 외부 API 키, RSS 파싱, HTML/OG 메타데이터 파싱, 중복 제거 로직은 서버에만 둔다.
+- 수집된 콘텐츠는 `content_items`에 저장한 뒤 프론트에 표시한다.
+- 공개 피드는 `content_items.status = 'published'`인 데이터만 조회한다.
+- 자동 수집된 콘텐츠는 기본적으로 즉시 `published` 상태로 저장한다.
+- 관리자는 콘텐츠를 직접 선별 등록하는 역할이 아니라, 소스와 품질을 운영하는 역할이다.
+- 관리자는 소스 추가/수정/비활성화, 수집 로그 확인, 잘못된 콘텐츠 숨김/삭제, 카테고리/태그 보정을 수행한다.
+- 외부 소스 장애가 있어도 기존 DB 데이터를 기반으로 피드는 계속 동작해야 한다.
+- 검색, 필터, 무한 스크롤은 외부 API가 아니라 Supabase에 저장된 정규화 데이터를 기준으로 처리한다.
+
+#### 구현 지침
+
+- 수집 진입점은 `apps/web/app/api/cron/ingest/route.ts` 같은 Route Handler로 둔다.
+- 수집 로직은 `apps/web/features/ingestion/server`의 service layer에 둔다.
+- 공개 피드 조회 로직은 `apps/web/features/feed/server/service.ts`에 둔다.
+- Supabase 클라이언트, 서버 수집기, Route Handler, React 컴포넌트는 `apps/web` 안에 둔다.
+- `packages/shared`에는 타입, 상수, 순수 유틸만 둔다.
+- 수집 소스는 `sources` 테이블에서 관리한다.
+- 수집 실행 결과는 `ingestion_runs`에 기록한다.
+- 중복 콘텐츠는 `content_items.url` 기준으로 방지한다.
+- 중복 URL 때문에 수집 전체가 실패하지 않도록 upsert 또는 conflict ignore 방식을 사용한다.
+- RSS/Atom 수집과 API 기반 수집은 source type별 adapter로 분리한다.
+- MVP에서는 AI 요약, AI 추천, AI 태그 생성, 사용자 제출 기능을 넣지 않는다.
+
+#### 흐름
+
 ```text
 Vercel Cron
-→ Next.js Route Handler
-→ CRON_SECRET 검증
-→ sources 조회
-→ RSS/API fetch
-→ 항목 정규화 및 중복 확인
-→ content_items upsert
-→ 수집 로그 기록
+→ Next.js Route Handler (CRON_SECRET 검증)
+→ sources 테이블에서 활성 소스 조회
+→ source type별 adapter로 RSS/Atom fetch
+→ 항목 정규화 (title, description, thumbnail, slug)
+→ 카테고리 자동 분류 (키워드 기반)
+→ content_items INSERT (ON CONFLICT url DO NOTHING)
+→ content_categories 연결
+→ ingestion_runs에 결과 기록
+→ sources.last_ingested_at 갱신
+```
+
+### 공개 피드 데이터 표시
+
+#### 원칙
+
+- 프론트 컴포넌트에서 외부 RSS/API URL을 직접 fetch하지 않는다.
+- 프론트는 Supabase/백엔드에서 내려온 `content_items` 데이터만 렌더링한다.
+- 검색, 필터, 정렬, 무한 스크롤도 백엔드 조회 결과 기준으로 처리한다.
+- 외부 소스 파싱, 중복 제거, 썸네일/메타데이터 정규화는 서버에서 처리한다.
+- 공개 피드는 `status = 'published'`인 콘텐츠만 표시한다.
+- 수집된 콘텐츠는 기본적으로 자동 공개한다.
+
+#### 흐름
+
+```text
+외부 RSS/API
+→ 백엔드 수집기 (features/ingestion/server)
+→ content_items DB 저장
+→ features/feed/server/service.ts 조회
+→ 프론트 렌더링
 ```
 
 ### 관리자 운영
@@ -140,8 +193,8 @@ GitHub OAuth 관리자 로그인
 - `content_tags`: 콘텐츠와 태그 연결
 - `bookmarks`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
 - `likes`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
-- `sources` (예정): RSS/API 소스 이름, URL, 소스 타입, 기본 섹션, 기본 언어, 활성 상태, 마지막 수집 시각
-- `ingestion_runs` (예정): 수집 시작/종료 시각, 상태, 처리/생성/스킵/실패 건수, 오류 메시지
+- `sources`: RSS/API 소스 이름, URL, 소스 타입, 기본 언어, 기본 카테고리, 활성 상태, 마지막 수집 시각
+- `ingestion_runs`: 수집 시작/종료 시각, 상태, 처리/생성/스킵/실패 건수, 오류 메시지
 - `profiles`: Supabase 사용자 id, 이메일, nickname(최대 20자), role('viewer'|'admin'), created_at
 
 ## 분류 원칙

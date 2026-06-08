@@ -5,6 +5,14 @@ export type FeedItem = {
   link?: string;
   pubDate?: string;
   description?: string;
+  // rss-parser default: <description> → content + contentSnippet
+  content?: string;
+  contentSnippet?: string;
+  // <content:encoded> namespace
+  "content:encoded"?: string;
+  "content:encodedSnippet"?: string;
+  // Atom <summary>
+  summary?: string;
   enclosure?: { url?: string };
   "media:content"?: { $?: { url?: string } };
 };
@@ -118,9 +126,19 @@ export function normalizeItem(item: FeedItem, source: IngestionSource): ContentI
   const cleanUrl = stripMediumTracking(item.link ?? "");
   const slug = slugFromUrl(cleanUrl);
 
-  const rawDescription = item.description ?? null;
-  const thumbnail = rawDescription ? (extractThumbnail(rawDescription) ?? null) : null;
-  const description = rawDescription ? (stripHtml(rawDescription).trim() || null) : null;
+  // 텍스트 설명: 이미 HTML이 제거된 필드를 우선, 없으면 HTML에서 직접 추출
+  const plainText =
+    item["content:encodedSnippet"] ??
+    item.contentSnippet ??
+    item.summary ??
+    null;
+  const rawHtml = item["content:encoded"] ?? item.content ?? item.description ?? null;
+  const description =
+    plainText?.trim() ||
+    (rawHtml ? stripHtml(rawHtml).trim() || null : null);
+
+  const mediaUrl = item["media:content"]?.$?.url ?? item.enclosure?.url ?? null;
+  const thumbnail = mediaUrl ?? (rawHtml ? extractThumbnail(rawHtml) ?? null : null);
 
   let publishedAt: string;
   if (item.pubDate && item.pubDate.trim() !== "") {
