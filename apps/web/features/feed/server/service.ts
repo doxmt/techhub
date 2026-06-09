@@ -153,10 +153,11 @@ export async function getFeed(
   const rows = hasMore ? data.slice(0, PAGE_SIZE) : data;
 
   const items = (rows as unknown as ContentRow[]).map(mapToFeedItem);
+  const lastRow = rows[rows.length - 1] as unknown as ContentRow;
   const nextCursor = hasMore
     ? encodeCursor({
-        publishedAt: (rows[rows.length - 1] as unknown as ContentRow).published_at!,
-        id: rows[rows.length - 1].id,
+        publishedAt: lastRow.published_at!,
+        id: lastRow.id,
       })
     : null;
 
