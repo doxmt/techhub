@@ -53,3 +53,35 @@
 - 헤더 드롭다운에 마이페이지 링크 추가
 - lib/supabase/admin.ts (service role key 사용 admin client) 추가
 - 이슈 #14 제목·내용 갱신, 8개 커밋, PR #15 생성 (closes #14)
+
+## 2026-06-08
+- PR #23 (fix/22-rss-thumbnail-category), PR #25 (feat/24-og-backfill) 브랜치가 main 기점으로 잘못 생성된 것 확인
+- 두 브랜치를 develop 기준으로 rebase 후 force push
+- SKILL.md 브랜치 생성 규칙 수정 (git checkout develop 먼저 명시)
+- PR #23 CI 실패 수정 (ArrowUpRight import 누락)
+- OG backfill 로컬 실행 시도 → 한국 기술 블로그 대부분 SPA/Medium 403으로 스크래핑 불가 확인
+- PR #23, PR #25 develop으로 squash merge 완료
+
+## 2026-06-08
+- 카테고리 8개 → 16개로 개편 (mobile, data, security, performance, testing, ml, llm, open-source, game 추가, claude-code 제거)
+- 가중치 점수 기반 다중 분류 구현: RSS 태그(10점) > 제목(3점) > 본문(1점), 아티클당 최대 3개 카테고리
+- 피드 필터 UI: 출처 단일 선택(`?source=`), 주제 최대 3개 다중 선택(`?categories=fe,be`) 추가
+- 한국 기술블로그 소스 3개 추가: NHN Cloud, 데브시스터즈, 올리브영
+- DB migration 작성 (20260608120000_update_categories_and_sources.sql)
+- PR #27 생성 및 CI 통과 후 머지 완료
+
+## 2026-06-09
+- 원격 DB 백필 완료 상태 확인: `content_items` 879개, `content_categories` 1903개, 실패 0건
+- 홈 카드 UI를 `아티클 - 출처`, 카테고리 배지, 날짜/조회/추천 메타 중심으로 수정
+- 카테고리 필터 시에도 글의 전체 카테고리가 표시되도록 feed service 수정
+- 재개 가능한 로컬 백필 스크립트 추가: `apps/web/scripts/backfill-content.mjs`
+- 네이버 D2, 토스, 카카오 테크 백필 adapter 보강
+  - 네이버 D2: `https://d2.naver.com/api/v1/contents` API 사용 (후보 753개)
+  - 토스: `https://api-public.toss.im/api-public/v3/ipd-thor/api/v1/workspaces/15/posts` API 사용 (후보 352개)
+  - 카카오 테크: `https://tech.kakao.com/api/v2/posts?code=blog` API 사용 (후보 455개)
+- 보강 adapter dry-run 검증: 3개 소스 × 3개 샘플, 처리 9건, 실패 0건
+- 보강 adapter 원격 백필 실행 완료: 발견 1560건, 처리 1560건, 신규 생성 1510건, 중복 skip 50건, 실패 0건, 카테고리 연결 2861개 추가
+- 쿠팡/당근 Medium RSS bundle adapter 추가
+  - dry-run: 쿠팡 34건, 당근 64건 발견
+  - 실제 백필: 쿠팡 33건 발견, 신규 23건 생성, 중복 10건 skip, 카테고리 연결 99개 추가
+  - 당근은 Medium 429가 있었지만 7건 발견, 신규 5건 생성, 중복 2건 skip, 카테고리 연결 21개 추가
