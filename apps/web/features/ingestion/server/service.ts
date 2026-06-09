@@ -4,7 +4,6 @@ import type { IngestionSource } from "./parser";
 import { classifyCategories } from "./classify";
 import { fetchOgMeta } from "./og-scraper";
 
-const MAX_ITEMS_PER_SOURCE = 30;
 const FETCH_TIMEOUT_MS = 10_000;
 
 export type IngestionResult = {
@@ -49,7 +48,8 @@ export async function runIngestion(): Promise<IngestionResult> {
   // 3. ingestion_run 시작 기록
   const { data: runData } = await adminClient
     .from("ingestion_runs")
-    .insert({ status: "running" });
+    .insert({ status: "running" })
+    .select("id");
 
   const runId = (runData as Array<{ id: string | number }> | null)?.[0]?.id ?? null;
 
@@ -79,11 +79,9 @@ export async function runIngestion(): Promise<IngestionResult> {
         clearTimeout(timeoutId);
       }
 
-      const rawPayloads = allPayloads.slice(0, MAX_ITEMS_PER_SOURCE);
-
       // 썸네일 없는 항목: OG 이미지 병렬 폴백
       const payloads = await Promise.all(
-        rawPayloads.map(async (payload) => {
+        allPayloads.map(async (payload) => {
           if (payload.thumbnail || !payload.url) return payload;
           const { image } = await fetchOgMeta(payload.url);
           return image ? { ...payload, thumbnail: image } : payload;
@@ -101,10 +99,13 @@ export async function runIngestion(): Promise<IngestionResult> {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const dbPayloads = payloads.map(({ rssCategories, ...rest }) => rest);
 
-      // insert-only (ON CONFLICT (url) DO NOTHING), select id for category linking
+      // 중복 URL은 무시하고 신규 항목만 insert, select id for category linking
       const insertResult = await adminClient
         .from("content_items")
-        .insert(dbPayloads as Parameters<ReturnType<typeof adminClient.from>["insert"]>[0])
+        .upsert(dbPayloads as Parameters<ReturnType<typeof adminClient.from>["upsert"]>[0], {
+          onConflict: "url",
+          ignoreDuplicates: true,
+        })
         .select("id");
 
       const { data: insertData, error: insertError, count } = insertResult as {
