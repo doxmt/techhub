@@ -194,10 +194,10 @@ export function ContentCard({
           <div className="mt-1.5 flex items-center gap-3">
             <span>{formattedDate}</span>
             <span className="inline-flex items-center gap-1">
-              <Eye className="size-3" aria-hidden="true" />0
+              <Eye className="size-3" aria-hidden="true" />{item.viewCount}
             </span>
             <span className="inline-flex items-center gap-1">
-              <ThumbsUp className="size-3" aria-hidden="true" />0
+              <ThumbsUp className="size-3" aria-hidden="true" />{item.likesCount}
             </span>
           </div>
         </div>

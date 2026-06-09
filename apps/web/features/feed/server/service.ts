@@ -16,9 +16,14 @@ export type FeedItem = {
   publishedAt: string;
   categories: { name: string; slug: string }[];
   tags: { name: string }[];
+  viewCount: number;
+  likesCount: number;
   isBookmarked?: boolean;
   isLiked?: boolean;
 };
+
+export type FeedSort = "latest" | "oldest" | "views" | "recommended";
+export type FeedPeriod = "day" | "week" | "month" | "all";
 
 export type FeedFilters = {
   q?: string;
@@ -27,6 +32,8 @@ export type FeedFilters = {
   type?: ContentType;
   lang?: string;
   section?: FeedSection;
+  sort?: FeedSort;
+  period?: FeedPeriod;
 };
 
 const PAGE_SIZE = 20;
@@ -43,6 +50,8 @@ type ContentRow = {
   slug: string;
   published_at: string | null;
   status?: string;
+  view_count: number;
+  likes_count: number;
   content_categories: { categories: { name: string; slug: string } | null }[] | null;
   content_tags: { tags: { name: string } | null }[] | null;
 };
@@ -70,6 +79,8 @@ function mapToFeedItem(row: ContentRow): FeedItem {
     language: row.language ?? "ko",
     slug: row.slug,
     publishedAt: row.published_at ?? "",
+    viewCount: row.view_count ?? 0,
+    likesCount: row.likes_count ?? 0,
     categories: dedupeCategories(
       (row.content_categories ?? [])
         .map((cc) => cc.categories)
@@ -95,24 +106,58 @@ export async function getFeed(
     : `content_categories(categories(name, slug)),
       content_tags(tags(name))`;
 
+  const sort = filters.sort ?? "latest";
+  const period = filters.period ?? "all";
+
   let query = supabase
     .from("content_items")
     .select(
       `id, title, description, thumbnail, source, type, language, slug, published_at,
-      url,
+      url, view_count, likes_count,
       ${relationSelect}`,
     )
     .eq("status", "published")
-    .order("published_at", { ascending: false })
-    .order("id", { ascending: false })
     .limit(PAGE_SIZE + 1);
 
+  // 정렬
+  if (sort === "oldest") {
+    query = query.order("published_at", { ascending: true }).order("id", { ascending: true });
+  } else if (sort === "views") {
+    query = query.order("view_count", { ascending: false }).order("id", { ascending: false });
+  } else if (sort === "recommended") {
+    query = query.order("likes_count", { ascending: false }).order("id", { ascending: false });
+  } else {
+    query = query.order("published_at", { ascending: false }).order("id", { ascending: false });
+  }
+
+  // 기간 필터
+  if (period !== "all") {
+    const ms = { day: 86400000, week: 604800000, month: 2592000000 }[period]!;
+    const cutoff = new Date(Date.now() - ms).toISOString();
+    query = query.gte("published_at", cutoff);
+  }
+
+  // 커서
   if (cursor) {
     const decoded = decodeCursor(cursor);
     if (decoded) {
-      query = query.or(
-        `published_at.lt.${decoded.publishedAt},and(published_at.eq.${decoded.publishedAt},id.lt.${decoded.id})`,
-      );
+      if (sort === "oldest") {
+        query = query.or(
+          `published_at.gt.${decoded.publishedAt},and(published_at.eq.${decoded.publishedAt},id.gt.${decoded.id})`,
+        );
+      } else if (sort === "views") {
+        query = query.or(
+          `view_count.lt.${decoded.countValue},and(view_count.eq.${decoded.countValue},id.lt.${decoded.id})`,
+        );
+      } else if (sort === "recommended") {
+        query = query.or(
+          `likes_count.lt.${decoded.countValue},and(likes_count.eq.${decoded.countValue},id.lt.${decoded.id})`,
+        );
+      } else {
+        query = query.or(
+          `published_at.lt.${decoded.publishedAt},and(published_at.eq.${decoded.publishedAt},id.lt.${decoded.id})`,
+        );
+      }
     }
   }
 
@@ -154,12 +199,17 @@ export async function getFeed(
 
   const items = (rows as unknown as ContentRow[]).map(mapToFeedItem);
   const lastRow = rows[rows.length - 1] as unknown as ContentRow;
-  const nextCursor = hasMore
-    ? encodeCursor({
-        publishedAt: lastRow.published_at!,
-        id: lastRow.id,
-      })
-    : null;
+
+  let nextCursor: string | null = null;
+  if (hasMore) {
+    if (sort === "views") {
+      nextCursor = encodeCursor({ id: lastRow.id, countValue: lastRow.view_count });
+    } else if (sort === "recommended") {
+      nextCursor = encodeCursor({ id: lastRow.id, countValue: lastRow.likes_count });
+    } else {
+      nextCursor = encodeCursor({ publishedAt: lastRow.published_at!, id: lastRow.id });
+    }
+  }
 
   if (userId && items.length > 0) {
     const ids = items.map((item) => parseInt(item.id));
