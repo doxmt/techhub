@@ -20,16 +20,15 @@ function formatDate(value: string) {
   ].join(".");
 }
 
-
-export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = false }: Props) {
+export function ContentCard({
+  item,
+  variant = "list",
+  onPreview,
+  isLoggedIn = false,
+}: Props) {
   const isPreviewEnabled = Boolean(onPreview);
   const typeLabel = item.type === "article" ? "아티클" : "영상";
   const formattedDate = formatDate(item.publishedAt);
-  const primaryMetadata = [
-    typeLabel,
-    item.categories[0]?.name,
-    item.source,
-  ].filter((value): value is string => Boolean(value));
 
   function openPreview() {
     onPreview?.(item);
@@ -55,19 +54,23 @@ export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = fa
         variant === "grid" && "h-full",
         variant === "list" && "sm:flex-row sm:items-stretch",
         isPreviewEnabled &&
-          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30",
+          "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30"
       )}
     >
       <div
         className={cn(
           "relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded",
-          variant === "list" && "sm:h-32 sm:w-56",
+          variant === "list" && "sm:h-32 sm:w-56"
         )}
       >
         {isPreviewEnabled ? (
           <div className="block h-full w-full" aria-hidden="true">
             {item.thumbnailUrl ? (
-              <ThumbnailImage src={item.thumbnailUrl} alt="" source={item.source ?? ""} />
+              <ThumbnailImage
+                src={item.thumbnailUrl}
+                alt=""
+                source={item.source ?? ""}
+              />
             ) : (
               <div
                 data-testid="thumbnail-placeholder"
@@ -88,7 +91,11 @@ export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = fa
             className="block h-full w-full"
           >
             {item.thumbnailUrl ? (
-              <ThumbnailImage src={item.thumbnailUrl} alt={item.title ?? ""} source={item.source ?? ""} />
+              <ThumbnailImage
+                src={item.thumbnailUrl}
+                alt={item.title ?? ""}
+                source={item.source ?? ""}
+              />
             ) : (
               <div
                 data-testid="thumbnail-placeholder"
@@ -119,7 +126,7 @@ export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = fa
               "min-w-0 flex-1 break-words text-base font-semibold leading-snug text-neutral-950 dark:text-neutral-50",
               variant === "grid"
                 ? "line-clamp-2 min-h-[2.75rem]"
-                : "line-clamp-1",
+                : "line-clamp-1"
             )}
           >
             {isPreviewEnabled ? (
@@ -149,46 +156,48 @@ export function ContentCard({ item, variant = "list", onPreview, isLoggedIn = fa
         <p
           className={cn(
             "mt-1 text-sm leading-5 text-neutral-600 dark:text-neutral-300",
-            variant === "grid"
-              ? "line-clamp-3 min-h-[3.75rem]"
-              : "line-clamp-2",
+            variant === "grid" ? "line-clamp-3 min-h-[3.75rem]" : "line-clamp-2"
           )}
         >
           {item.description ?? ""}
         </p>
 
         <div className="mt-auto min-h-12 pt-3 text-xs text-neutral-500">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {primaryMetadata.map((value, index) => (
-              <span
-                key={`${value}-${index}`}
-                className={
-                  index === 0
-                    ? "font-medium text-neutral-700 dark:text-neutral-200"
-                    : undefined
-                }
-              >
-                {index > 0 && (
-                  <span
-                    className="mr-2 text-neutral-300 dark:text-neutral-700"
-                    aria-hidden="true"
-                  >
-                    ·
-                  </span>
-                )}
-                {value}
-              </span>
-            ))}
+          <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap font-medium text-neutral-700 dark:text-neutral-200">
+            <span>{typeLabel}</span>
+            {item.source && (
+              <>
+                <span
+                  className="text-neutral-300 dark:text-neutral-700"
+                  aria-hidden="true"
+                >
+                  -
+                </span>
+                <span className="min-w-0 truncate">{item.source}</span>
+              </>
+            )}
           </div>
-          <div className="mt-1 flex items-center gap-3">
+
+          {item.categories.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {item.categories.map((category) => (
+                <span
+                  key={category.slug}
+                  className="rounded border border-neutral-200 px-1.5 py-0.5 font-medium text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+                >
+                  {category.name}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-1.5 flex items-center gap-3">
             <span>{formattedDate}</span>
             <span className="inline-flex items-center gap-1">
-              <Eye className="size-3" aria-hidden="true" />
-              0
+              <Eye className="size-3" aria-hidden="true" />0
             </span>
             <span className="inline-flex items-center gap-1">
-              <ThumbsUp className="size-3" aria-hidden="true" />
-              0
+              <ThumbsUp className="size-3" aria-hidden="true" />0
             </span>
           </div>
         </div>

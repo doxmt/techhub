@@ -25,14 +25,19 @@ const FIXTURE: FeedItem = {
   language: "ko",
   slug: "react-server-components",
   publishedAt: "2026-05-01T09:00:00+00:00",
-  categories: [{ name: "Frontend", slug: "fe" }],
+  categories: [
+    { name: "Frontend", slug: "fe" },
+    { name: "Performance", slug: "performance" },
+  ],
   tags: [{ name: "React" }],
 };
 
 describe("ContentCard", () => {
   it("제목, 출처, 타입을 렌더한다", () => {
     render(<ContentCard item={FIXTURE} />);
-    expect(screen.getByText("React Server Components 완벽 가이드")).toBeInTheDocument();
+    expect(
+      screen.getByText("React Server Components 완벽 가이드")
+    ).toBeInTheDocument();
     expect(screen.getByText("example.com")).toBeInTheDocument();
     expect(screen.getByText("아티클")).toBeInTheDocument();
   });
@@ -40,28 +45,35 @@ describe("ContentCard", () => {
   it("thumbnailUrl이 null이면 placeholder를 렌더한다", () => {
     render(<ContentCard item={{ ...FIXTURE, thumbnailUrl: null }} />);
     // 썸네일 이미지가 없을 때 placeholder 요소가 있어야 한다.
-    const placeholder = document.querySelector("[data-testid='thumbnail-placeholder']");
+    const placeholder = document.querySelector(
+      "[data-testid='thumbnail-placeholder']"
+    );
     expect(placeholder).toBeInTheDocument();
   });
 
   it("description이 null이면 렌더하지 않거나 fallback을 표시한다", () => {
     render(<ContentCard item={{ ...FIXTURE, description: null }} />);
     // 설명 없이도 크래시 없이 렌더된다.
-    expect(screen.getByText("React Server Components 완벽 가이드")).toBeInTheDocument();
+    expect(
+      screen.getByText("React Server Components 완벽 가이드")
+    ).toBeInTheDocument();
     // "RSC 설명" 텍스트는 없어야 한다.
     expect(screen.queryByText("RSC 설명")).not.toBeInTheDocument();
   });
 
-  it("첫 번째 category를 메타 정보로 렌더한다", () => {
+  it("연결된 category를 모두 렌더한다", () => {
     render(<ContentCard item={FIXTURE} />);
     expect(screen.getByText("Frontend")).toBeInTheDocument();
+    expect(screen.getByText("Performance")).toBeInTheDocument();
   });
 
   it("publishedAt을 포맷된 날짜로 표시한다", () => {
     render(<ContentCard item={FIXTURE} />);
     // ISO 원문이 아닌 포맷된 날짜 문자열이 있어야 한다.
     // "2026-05-01T09:00:00+00:00" 원문은 표시하지 않는다.
-    expect(screen.queryByText("2026-05-01T09:00:00+00:00")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("2026-05-01T09:00:00+00:00")
+    ).not.toBeInTheDocument();
     // 연도 "2026"은 포맷된 날짜 어딘가에 포함돼야 한다.
     expect(screen.getByText(/2026/)).toBeInTheDocument();
   });

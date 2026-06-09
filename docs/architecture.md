@@ -27,9 +27,9 @@
 │       │   ├── admin/            # 관리자 전용 (role='admin')
 │       │   ├── profile/          # 마이페이지 (로그인 필수)
 │       │   ├── layout.tsx
-│       │   └── page.tsx          # 공개 피드 홈
+│       │   └── page.tsx          # 공개 피드 홈 (출처/카테고리 필터 포함)
 │       ├── components
-│       │   ├── feed/             # FeedInfiniteScroll, ContentCard, ContentActions 등
+│       │   ├── feed/             # FeedInfiniteScroll, ContentCard, ThumbnailImage 등
 │       │   └── ui/               # shadcn/ui 컴포넌트
 │       ├── features
 │       │   ├── auth/
@@ -38,7 +38,7 @@
 │       │   ├── feed/
 │       │   │   └── server/       # service.ts, actions.ts
 │       │   └── ingestion/
-│       │       └── server/       # service.ts, parser.ts, classify.ts, backfill.ts
+│       │       └── server/       # service.ts, parser.ts, classify.ts, backfill.ts, og-scraper.ts
 │       ├── lib
 │       │   └── supabase/
 │       │       ├── client.ts     # 브라우저 클라이언트
@@ -52,6 +52,8 @@
 ├── packages
 │   └── shared
 │       └── src
+│           ├── index.ts          # CATEGORIES(16개), SOURCES(10개), CategorySlug, Source 타입
+│           └── feed-params.ts    # parseFeedParams (categories[], source 파싱/검증)
 ├── supabase
 │   ├── migrations
 │   └── seed.sql
@@ -78,9 +80,9 @@
 ```text
 사용자 요청
 → Next.js Server Component
-→ URL query 파싱
+→ URL query 파싱 (section, categories[], source, lang, q)
 → feature service (userId 있으면 isBookmarked/isLiked 병합)
-→ Supabase Postgres FTS/섹션/주제/언어 필터 쿼리
+→ Supabase Postgres FTS/섹션/카테고리/출처/언어 필터 쿼리
 → published 콘텐츠만 반환
 → 피드 렌더링 (isLoggedIn prop threading)
 → 무한 스크롤로 다음 cursor 요청 (loadMoreFeed에서 유저 세션 조회)
@@ -121,10 +123,10 @@ Vercel Cron
 → Next.js Route Handler (CRON_SECRET 검증)
 → sources 테이블에서 활성 소스 조회
 → source type별 adapter로 RSS/Atom fetch
-→ 항목 정규화 (title, description, thumbnail, slug)
-→ 카테고리 자동 분류 (키워드 기반)
+→ 항목 정규화 (title, description, thumbnail, slug, rssCategories carry field)
+→ 카테고리 자동 분류: classifyCategories() 가중치 점수 (RSS 10pt / 제목 3pt / 본문 1pt), 최대 3개
 → content_items INSERT (ON CONFLICT url DO NOTHING)
-→ content_categories 연결
+→ content_categories 연결 (1~3개)
 → ingestion_runs에 결과 기록
 → sources.last_ingested_at 갱신
 ```
@@ -187,13 +189,13 @@ GitHub OAuth 관리자 로그인
 ## 데이터 모델
 
 - `content_items`: URL, 미디어 타입(`article`/`youtube`), 제목, 설명, 썸네일, 출처, 언어, slug, 게시 상태, 등록일/수정일
-- `categories`: FE, BE, Cloud, Claude Code, AI Agents, Tools, Architecture, Career
+- `categories`: 16개 (fe, be, mobile, cloud, data, security, architecture, performance, testing, ml, llm, ai-agents, open-source, tools, career, game)
 - `tags`: 자유 태그
-- `content_categories`: 콘텐츠와 카테고리 연결
+- `content_categories`: 콘텐츠와 카테고리 연결 (아티클당 최대 3개)
 - `content_tags`: 콘텐츠와 태그 연결
 - `bookmarks`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
 - `likes`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
-- `sources`: RSS/API 소스 이름, URL, 소스 타입, 기본 언어, 기본 카테고리, 활성 상태, 마지막 수집 시각
+- `sources`: RSS/API 소스 이름, URL, 소스 타입, 기본 언어, 기본 카테고리, 활성 상태, 마지막 수집 시각 (10개: 네이버 D2, 카카오 테크, 라인 LY, 쿠팡 엔지니어링, 우아한형제들, 당근마켓, 토스, NHN Cloud, 데브시스터즈, 올리브영)
 - `ingestion_runs`: 수집 시작/종료 시각, 상태, 처리/생성/스킵/실패 건수, 오류 메시지
 - `profiles`: Supabase 사용자 id, 이메일, nickname(최대 20자), role('viewer'|'admin'), created_at
 
@@ -203,7 +205,15 @@ GitHub OAuth 관리자 로그인
 - UI-first 단계의 섹션은 `news`, `article`, `contest`를 사용한다.
 - 현재 DB에는 별도 section 컬럼을 추가하지 않는다. `news`는 전체 최신순, `article`은 기존 `type='article'`, `contest`는 준비중 상태로 처리한다.
 - 기존 `type`은 콘텐츠 표시 방식이나 원본 미디어를 나타내는 보조 필드로 유지한다.
-- 검색/필터 URL query는 `section`, `category`, `lang`, `q`를 기본으로 사용한다.
+- 검색/필터 URL query는 `section`, `categories`(콤마구분 최대 3개), `source`, `lang`, `q`를 기본으로 사용한다.
+
+## 카테고리 분류 방식
+
+- `classifyCategories({ title, description, rssCategories })` 가중치 점수 방식
+- RSS `<category>` 태그: 10점, 제목 키워드: 3점, 본문 키워드: 1점
+- 점수 상위 최대 3개 카테고리 반환 (0점이면 미분류)
+- 키워드 맵은 `apps/web/features/ingestion/server/classify.ts`에서 관리
+- `rssCategories`는 DB 컬럼이 아닌 carry field — insert 전 제거
 
 ## 네이밍 규칙
 
