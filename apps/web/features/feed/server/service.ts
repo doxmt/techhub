@@ -47,6 +47,17 @@ type ContentRow = {
   content_tags: { tags: { name: string } | null }[] | null;
 };
 
+function dedupeCategories(
+  categories: { name: string; slug: string }[],
+): { name: string; slug: string }[] {
+  const seen = new Set<string>();
+  return categories.filter((category) => {
+    if (seen.has(category.slug)) return false;
+    seen.add(category.slug);
+    return true;
+  });
+}
+
 function mapToFeedItem(row: ContentRow): FeedItem {
   return {
     id: String(row.id),
@@ -59,9 +70,11 @@ function mapToFeedItem(row: ContentRow): FeedItem {
     language: row.language ?? "ko",
     slug: row.slug,
     publishedAt: row.published_at ?? "",
-    categories: (row.content_categories ?? [])
-      .map((cc) => cc.categories)
-      .filter((c): c is { name: string; slug: string } => c !== null),
+    categories: dedupeCategories(
+      (row.content_categories ?? [])
+        .map((cc) => cc.categories)
+        .filter((c): c is { name: string; slug: string } => c !== null),
+    ),
     tags: (row.content_tags ?? [])
       .map((ct) => ct.tags)
       .filter((t): t is { name: string } => t !== null),
@@ -76,7 +89,8 @@ export async function getFeed(
   const supabase = await createClient();
   const hasCategories = filters.categories && filters.categories.length > 0;
   const relationSelect = hasCategories
-    ? `content_categories!inner(categories!inner(name, slug)),
+    ? `content_categories(categories(name, slug)),
+      category_filter:content_categories!inner(categories!inner(slug)),
       content_tags(tags(name))`
     : `content_categories(categories(name, slug)),
       content_tags(tags(name))`;
@@ -125,7 +139,7 @@ export async function getFeed(
   }
 
   if (filters.categories && filters.categories.length > 0) {
-    query = query.in("content_categories.categories.slug", filters.categories);
+    query = query.in("category_filter.categories.slug", filters.categories);
   }
 
   if (filters.source) {
@@ -139,10 +153,11 @@ export async function getFeed(
   const rows = hasMore ? data.slice(0, PAGE_SIZE) : data;
 
   const items = (rows as unknown as ContentRow[]).map(mapToFeedItem);
+  const lastRow = rows[rows.length - 1] as unknown as ContentRow;
   const nextCursor = hasMore
     ? encodeCursor({
-        publishedAt: (rows[rows.length - 1] as unknown as ContentRow).published_at!,
-        id: rows[rows.length - 1].id,
+        publishedAt: lastRow.published_at!,
+        id: lastRow.id,
       })
     : null;
 

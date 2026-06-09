@@ -40,3 +40,6 @@ docs/plans/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# local ingestion/backfill checkpoints
+.backfill/

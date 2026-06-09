@@ -15,7 +15,13 @@ type: project
 ### 다음 할 일
 - 개발뉴스 데이터를 실제로 수집/저장할 때 `content_items.section` 같은 명시 필드 추가 검토
 - 개발뉴스 데이터가 준비되면 `news` 섹션 조회 로직 연결
+- daily ingest 수정
+  - `insert` → `upsert(..., { ignoreDuplicates: true })`
+  - `ingestion_runs` insert 후 `.select("id")`
+  - category insert / `last_ingested_at` update `await`
+- 피드 UI 모바일 viewport 직접 확인
 
 ### 참고사항
 - 현재 DB에 들어온 콘텐츠는 전부 아티클로 간주한다.
 - `type`은 미디어 타입(`article`/`youtube`)으로 유지하고, 뉴스/아티클 같은 상위 섹션과 혼용하지 않는다.
+- 네이버 D2/토스/카카오의 기본 RSS는 각각 20/20/10개만 내려오므로 백필은 API adapter를 사용해야 한다.

@@ -14,7 +14,10 @@ const item: FeedItem = {
   language: "ko",
   slug: "react-server-components",
   publishedAt: "2026-05-01T09:00:00+00:00",
-  categories: [],
+  categories: [
+    { name: "Frontend", slug: "fe" },
+    { name: "Performance", slug: "performance" },
+  ],
   tags: [],
 };
 
@@ -28,6 +31,15 @@ describe("ContentCard", () => {
   it("grid variant를 렌더한다", () => {
     render(<ContentCard item={item} variant="grid" />);
 
-    expect(screen.getByText("React Server Components 완벽 가이드")).toBeInTheDocument();
+    expect(
+      screen.getByText("React Server Components 완벽 가이드")
+    ).toBeInTheDocument();
+  });
+
+  it("연결된 카테고리를 모두 보여준다", () => {
+    render(<ContentCard item={item} />);
+
+    expect(screen.getByText("Frontend")).toBeInTheDocument();
+    expect(screen.getByText("Performance")).toBeInTheDocument();
   });
 });
