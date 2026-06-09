@@ -60,7 +60,14 @@ export default async function HomePage({ searchParams }: Props) {
     }
   }
 
-  const placeholderSections = ["contest", "recommended"];
+  const placeholderSections = ["news", "contest", "recommended"];
+  const activeCategories =
+    currentSection === "article" ? (filters.categories ?? []) : [];
+  const feedFilters = {
+    ...filters,
+    categories: activeCategories,
+    section: currentSection,
+  };
   const { items, nextCursor } =
     placeholderSections.includes(currentSection)
       ? { items: [], nextCursor: null }
@@ -68,7 +75,7 @@ export default async function HomePage({ searchParams }: Props) {
         ? authUser
           ? await getSavedFeed({ userId: authUser.id })
           : { items: [], nextCursor: null }
-        : await getFeed(filters, undefined, authUser?.id);
+        : await getFeed(feedFilters, undefined, authUser?.id);
 
   const sectionTabs = [
     {
@@ -114,32 +121,45 @@ export default async function HomePage({ searchParams }: Props) {
       icon: Trophy,
       title: "공모전 데이터 준비중",
       description:
-        "해커톤, 챌린지, 개발자 공모전 정보를 별도 섹션으로 모을 예정입니다. 지금은 최신 뉴스와 아티클을 먼저 탐색할 수 있습니다.",
+        "해커톤, 챌린지, 개발자 공모전 정보를 별도 섹션으로 모을 예정입니다. 지금은 아티클을 먼저 탐색할 수 있습니다.",
       previewItems: ["해커톤", "오픈소스 챌린지", "기업 기술 공모전"],
+    },
+    news: {
+      icon: Newspaper,
+      title: "개발뉴스 데이터 준비중",
+      description:
+        "최신 뉴스는 아티클과 분리된 데이터로 채울 예정입니다. 현재 등록된 콘텐츠는 아티클 탭에서 확인할 수 있습니다.",
+      previewItems: ["기술 릴리즈", "기업 개발 소식", "오픈소스 뉴스"],
     },
     recommended: {
       icon: Sparkles,
       title: "추천 섹션 준비중",
       description:
-        "운영자가 선별한 주요 뉴스와 아티클을 따로 모아볼 수 있게 준비하고 있습니다.",
+        "운영자가 선별한 주요 콘텐츠를 따로 모아볼 수 있게 준비하고 있습니다.",
       previewItems: ["이번 주 주요 소식", "깊이 읽을 글", "주목할 도구"],
     },
   } as const;
   const activePlaceholder =
-    currentSection === "contest" || currentSection === "recommended"
+    currentSection === "news" ||
+    currentSection === "contest" ||
+    currentSection === "recommended"
       ? placeholderContent[currentSection]
       : null;
   const EmptyIcon = activePlaceholder?.icon ?? Trophy;
   const showSavedLoginRequired = currentSection === "saved" && !authUser;
 
-  const currentCategories = filters.categories ?? [];
-  const currentSource = filters.source;
+  const currentCategories = activeCategories;
+  const currentSource = currentSection === "article" ? filters.source : undefined;
 
   function baseParams() {
     const nextParams = new URLSearchParams();
     if (filters.q) nextParams.set("q", filters.q);
-    if (currentCategories.length > 0) nextParams.set("categories", currentCategories.join(","));
-    if (currentSource) nextParams.set("source", currentSource);
+    if (currentSection === "article" && currentCategories.length > 0) {
+      nextParams.set("categories", currentCategories.join(","));
+    }
+    if (currentSection === "article" && currentSource) {
+      nextParams.set("source", currentSource);
+    }
     if (filters.lang) nextParams.set("lang", filters.lang);
     if (currentSection !== "news") nextParams.set("section", currentSection);
     if (currentView === "list") nextParams.set("view", currentView);
@@ -156,6 +176,10 @@ export default async function HomePage({ searchParams }: Props) {
   function sectionHref(section: (typeof sectionTabs)[number]["value"]) {
     const nextParams = baseParams();
     nextParams.delete("section");
+    if (section !== "article") {
+      nextParams.delete("categories");
+      nextParams.delete("source");
+    }
     if (section !== "news") nextParams.set("section", section);
     return paramsHref(nextParams);
   }
@@ -245,7 +269,7 @@ export default async function HomePage({ searchParams }: Props) {
                   {currentPeriod !== "all" && (
                     <input type="hidden" name="period" value={currentPeriod} />
                   )}
-                  {currentCategories.length > 0 && (
+                  {currentSection === "article" && currentCategories.length > 0 && (
                     <input type="hidden" name="categories" value={currentCategories.join(",")} />
                   )}
                   {currentSource && (
@@ -296,7 +320,10 @@ export default async function HomePage({ searchParams }: Props) {
                     currentPeriod={currentPeriod}
                     preservedParams={{
                       q: filters.q,
-                      categories: currentCategories.length > 0 ? currentCategories.join(",") : undefined,
+                      categories:
+                        currentSection === "article" && currentCategories.length > 0
+                          ? currentCategories.join(",")
+                          : undefined,
                       source: currentSource,
                       lang: filters.lang,
                       section: currentSection !== "news" ? currentSection : undefined,
@@ -337,88 +364,90 @@ export default async function HomePage({ searchParams }: Props) {
                 </div>
               </div>
 
-              {/* 출처 필터 — 단일 선택 */}
-              <nav
-                aria-label="출처"
-                className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
-              >
-                <a
-                  href={sourceHref(undefined)}
-                  aria-current={!currentSource ? "page" : undefined}
-                  className={cn(
-                    "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
-                    !currentSource
-                      ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
-                      : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
-                  )}
-                >
-                  전체
-                </a>
-                {SOURCES.map((source) => {
-                  const isActive = currentSource === source;
-                  return (
+              {currentSection === "article" && (
+                <>
+                  <nav
+                    aria-label="출처"
+                    className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                  >
                     <a
-                      key={source}
-                      href={sourceHref(isActive ? undefined : source)}
-                      aria-current={isActive ? "page" : undefined}
+                      href={sourceHref(undefined)}
+                      aria-current={!currentSource ? "page" : undefined}
                       className={cn(
                         "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
-                        isActive
+                        !currentSource
                           ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
                           : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
                       )}
                     >
-                      {source}
+                      전체
                     </a>
-                  );
-                })}
-              </nav>
+                    {SOURCES.map((source) => {
+                      const isActive = currentSource === source;
+                      return (
+                        <a
+                          key={source}
+                          href={sourceHref(isActive ? undefined : source)}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                            isActive
+                              ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                              : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                          )}
+                        >
+                          {source}
+                        </a>
+                      );
+                    })}
+                  </nav>
 
-              {/* 주제 필터 — 최대 3개 선택 */}
-              <nav
-                aria-label="주제"
-                className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
-              >
-                <a
-                  href={clearCategoriesHref()}
-                  aria-current={currentCategories.length === 0 ? "page" : undefined}
-                  className={cn(
-                    "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
-                    currentCategories.length === 0
-                      ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
-                      : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
-                  )}
-                >
-                  전체
-                </a>
-                {CATEGORIES.map((category) => {
-                  const isActive = currentCategories.includes(category.slug);
-                  const isDisabled = !isActive && currentCategories.length >= 3;
-                  return (
+                  <nav
+                    aria-label="주제"
+                    className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                  >
                     <a
-                      key={category.slug}
-                      href={isDisabled ? "#" : toggleCategoryHref(category.slug)}
-                      aria-current={isActive ? "page" : undefined}
-                      aria-disabled={isDisabled}
+                      href={clearCategoriesHref()}
+                      aria-current={currentCategories.length === 0 ? "page" : undefined}
                       className={cn(
                         "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
-                        isActive
+                        currentCategories.length === 0
                           ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
-                          : isDisabled
-                            ? "cursor-not-allowed border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-600"
-                            : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                          : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
                       )}
                     >
-                      {category.name}
+                      전체
                     </a>
-                  );
-                })}
-                {currentCategories.length > 0 && (
-                  <span className="inline-flex h-8 shrink-0 items-center px-1 text-xs text-neutral-400">
-                    {currentCategories.length}/3
-                  </span>
-                )}
-              </nav>
+                    {CATEGORIES.map((category) => {
+                      const isActive = currentCategories.includes(category.slug);
+                      const isDisabled = !isActive && currentCategories.length >= 3;
+                      return (
+                        <a
+                          key={category.slug}
+                          href={isDisabled ? "#" : toggleCategoryHref(category.slug)}
+                          aria-current={isActive ? "page" : undefined}
+                          aria-disabled={isDisabled}
+                          className={cn(
+                            "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                            isActive
+                              ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                              : isDisabled
+                                ? "cursor-not-allowed border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-600"
+                                : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                          )}
+                        >
+                          {category.name}
+                        </a>
+                      );
+                    })}
+                    {currentCategories.length > 0 && (
+                      <span className="inline-flex h-8 shrink-0 items-center px-1 text-xs text-neutral-400">
+                        {currentCategories.length}/3
+                      </span>
+                    )}
+                  </nav>
+                </>
+              )}
             </div>
           </div>
           {activePlaceholder ? (
@@ -442,10 +471,10 @@ export default async function HomePage({ searchParams }: Props) {
               </div>
               <div className="mt-5">
                 <a
-                  href={sectionHref("news")}
+                  href={sectionHref("article")}
                   className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 >
-                  최신 뉴스 보기
+                  아티클 보기
                   <ArrowUpRight className="size-4" aria-hidden="true" />
                 </a>
               </div>
@@ -461,10 +490,10 @@ export default async function HomePage({ searchParams }: Props) {
               </p>
               <div className="mt-5">
                 <a
-                  href={sectionHref("news")}
+                  href={sectionHref("article")}
                   className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 >
-                  최신 뉴스 보기
+                  아티클 보기
                   <ArrowUpRight className="size-4" aria-hidden="true" />
                 </a>
               </div>
@@ -473,7 +502,7 @@ export default async function HomePage({ searchParams }: Props) {
             <FeedInfiniteScroll
               initialItems={items}
               nextCursor={nextCursor}
-              filters={filters}
+              filters={feedFilters}
               view={currentView}
               isLoggedIn={!!authUser}
             />
