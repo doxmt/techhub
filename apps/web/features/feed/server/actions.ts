@@ -14,6 +14,8 @@ export async function loadMoreFeed(input: {
   type?: string;
   lang?: string;
   section?: string;
+  sort?: string;
+  period?: string;
 }): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
   const type =
     input.type !== undefined &&
@@ -45,6 +47,15 @@ export async function loadMoreFeed(input: {
       ? input.source
       : undefined;
 
+  const sort =
+    input.sort === "oldest" || input.sort === "views" || input.sort === "recommended"
+      ? (input.sort as "oldest" | "views" | "recommended")
+      : "latest";
+  const period =
+    input.period === "day" || input.period === "week" || input.period === "month"
+      ? (input.period as "day" | "week" | "month")
+      : "all";
+
   const filters: FeedFilters = {
     q: input.q,
     categories,
@@ -52,6 +63,8 @@ export async function loadMoreFeed(input: {
     type,
     lang: input.lang,
     section,
+    sort,
+    period,
   };
 
   const supabase = await createClient();
@@ -59,4 +72,10 @@ export async function loadMoreFeed(input: {
   const userId = userData?.user?.id;
 
   return getFeed(filters, input.cursor, userId);
+}
+
+export async function incrementViewCount(contentId: number): Promise<void> {
+  const supabase = await createClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase.rpc as any)("increment_view_count", { p_content_id: contentId });
 }

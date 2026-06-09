@@ -67,6 +67,8 @@ export default async function HomePage({ searchParams }: Props) {
     ...filters,
     categories: activeCategories,
     section: currentSection,
+    sort: currentSort as import("../features/feed/server/service").FeedSort,
+    period: currentPeriod as import("../features/feed/server/service").FeedPeriod,
   };
   const { items, nextCursor } =
     placeholderSections.includes(currentSection)

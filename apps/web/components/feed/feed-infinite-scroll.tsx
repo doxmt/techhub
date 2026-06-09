@@ -5,7 +5,7 @@ import { ArrowUpRight, Bookmark, Eye, ThumbsUp, X } from "lucide-react";
 import { ContentCard } from "./content-card";
 import { ThumbnailImage } from "./thumbnail-image";
 import { Skeleton } from "@/components/ui/skeleton";
-import { loadMoreFeed } from "@/features/feed/server/actions";
+import { loadMoreFeed, incrementViewCount } from "@/features/feed/server/actions";
 import { toggleBookmark, toggleLike } from "@/features/auth/server/actions";
 import { AuthDialog } from "@/features/auth/components/auth-dialog";
 import type { FeedItem } from "@/features/feed/server/service";
@@ -18,6 +18,8 @@ type Filters = {
   type?: string;
   lang?: string;
   section?: string;
+  sort?: string;
+  period?: string;
 };
 
 type Props = {
@@ -130,6 +132,22 @@ export function FeedInfiniteScroll({
           item={previewItem}
           isLoggedIn={isLoggedIn}
           onClose={() => setPreviewItem(null)}
+          onViewCountIncrement={(contentId) => {
+            setItems((prev) =>
+              prev.map((i) =>
+                Number(i.id) === contentId ? { ...i, viewCount: i.viewCount + 1 } : i
+              )
+            );
+          }}
+          onLikesCountChange={(contentId, delta) => {
+            setItems((prev) =>
+              prev.map((i) =>
+                Number(i.id) === contentId
+                  ? { ...i, likesCount: Math.max(0, i.likesCount + delta) }
+                  : i
+              )
+            );
+          }}
         />
       )}
     </div>
@@ -148,13 +166,19 @@ function ContentPreviewModal({
   item,
   isLoggedIn,
   onClose,
+  onViewCountIncrement,
+  onLikesCountChange,
 }: {
   item: FeedItem;
   isLoggedIn: boolean;
   onClose: () => void;
+  onViewCountIncrement?: (contentId: number) => void;
+  onLikesCountChange?: (contentId: number, delta: number) => void;
 }) {
   const [bookmarked, setBookmarked] = useState(item.isBookmarked ?? false);
   const [liked, setLiked] = useState(item.isLiked ?? false);
+  const [likesCount, setLikesCount] = useState(item.likesCount);
+  const [viewCount, setViewCount] = useState(item.viewCount);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [, startTransition] = useTransition();
   const typeLabel = item.type === "article" ? "아티클" : "영상";
@@ -178,10 +202,25 @@ function ContentPreviewModal({
       return;
     }
     const next = !liked;
+    const delta = next ? 1 : -1;
     setLiked(next);
+    setLikesCount((prev) => Math.max(0, prev + delta));
+    onLikesCountChange?.(Number(item.id), delta);
     startTransition(async () => {
       const result = await toggleLike(Number(item.id));
-      if ("error" in result) setLiked(!next);
+      if ("error" in result) {
+        setLiked(!next);
+        setLikesCount((prev) => Math.max(0, prev - delta));
+        onLikesCountChange?.(Number(item.id), -delta);
+      }
+    });
+  }
+
+  function handleExternalLinkClick() {
+    setViewCount((prev) => prev + 1);
+    onViewCountIncrement?.(Number(item.id));
+    startTransition(async () => {
+      await incrementViewCount(Number(item.id));
     });
   }
 
@@ -274,13 +313,10 @@ function ContentPreviewModal({
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-neutral-500">
             <span>{formatDate(item.publishedAt)}</span>
             <span className="inline-flex items-center gap-1">
-              <Eye className="size-3" aria-hidden="true" />0
+              <Eye className="size-3" aria-hidden="true" />{viewCount}
             </span>
             <span className="inline-flex items-center gap-1">
-              <ThumbsUp className="size-3" aria-hidden="true" />0
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Bookmark className="size-3" aria-hidden="true" />0
+              <ThumbsUp className="size-3" aria-hidden="true" />{likesCount}
             </span>
           </div>
 
@@ -336,6 +372,7 @@ function ContentPreviewModal({
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={handleExternalLinkClick}
               className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 text-sm font-medium text-white transition hover:bg-teal-700 dark:bg-teal-500 dark:text-neutral-950 dark:hover:bg-teal-400"
             >
               원문 보기
