@@ -4,20 +4,18 @@ description: 가장 최근 세션의 작업 상태와 다음 할 일
 type: project
 ---
 
-## 마지막 작업 (2026-06-06)
+## 마지막 작업 (2026-06-09)
 
 ### 완료
-- 일반 사용자 인증 (회원가입/로그인/로그아웃), 북마크/좋아요, 마이페이지 전체 구현
-- PR #15 생성 (feat/14-user-auth-bookmarks → develop, closes #14)
-- 이슈 #14: "feat: 일반 사용자 인증, 북마크/좋아요, 마이페이지" (OPEN, PR 대기 중)
+- 이슈 #30 생성: 홈 피드에서 아티클과 개발뉴스 섹션 분리
+- 홈 `최신 뉴스` 탭은 개발뉴스 전용 준비중 상태로 변경하고, 기존 DB 아티클은 `아티클` 탭에서만 노출하도록 조정
+- 출처와 주제 카테고리 필터는 `아티클` 탭에서만 표시/유지되도록 조정
+- 다른 섹션으로 이동할 때 `source`, `categories` query가 제거되도록 조정
 
 ### 다음 할 일
-- PR #15 develop 머지 완료
-- RSS/API 소스 관리 및 자동 수집 (Vercel Cron, ingestion_runs)
-- 관리자 콘텐츠 관리 UI (TanStack Table 기반 콘텐츠 목록, 게시/비공개/삭제) ← 맨 마지막
+- 개발뉴스 데이터를 실제로 수집/저장할 때 `content_items.section` 같은 명시 필드 추가 검토
+- 개발뉴스 데이터가 준비되면 `news` 섹션 조회 로직 연결
 
 ### 참고사항
-- Supabase 원격 email confirmation 비활성화 완료 (supabase config push)
-- profiles.role='admin'인 유저만 Admin 버튼 노출 및 /admin 접근 가능
-- /profile 마이페이지: 계정 탈퇴는 SUPABASE_SERVICE_ROLE_KEY 필요 (lib/supabase/admin.ts)
-- 조회수/추천수 카운트는 하드코딩 0, 나중에 구현 예정
+- 현재 DB에 들어온 콘텐츠는 전부 아티클로 간주한다.
+- `type`은 미디어 타입(`article`/`youtube`)으로 유지하고, 뉴스/아티클 같은 상위 섹션과 혼용하지 않는다.

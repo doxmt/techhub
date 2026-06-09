@@ -201,9 +201,11 @@ GitHub OAuth 관리자 로그인
 
 - 공개 UI의 상위 분류는 URL query의 `section`이다.
 - UI-first 단계의 섹션은 `news`, `article`, `contest`를 사용한다.
-- 현재 DB에는 별도 section 컬럼을 추가하지 않는다. `news`는 전체 최신순, `article`은 기존 `type='article'`, `contest`는 준비중 상태로 처리한다.
+- 현재 DB에 들어온 콘텐츠는 아티클 데이터로 간주하고 `article` 섹션에서만 노출한다.
+- `news`는 아티클과 분리된 개발뉴스 데이터가 들어오기 전까지 준비중 상태로 처리한다.
+- 현재 DB에는 별도 section 컬럼을 추가하지 않는다. 향후 개발뉴스를 실제 피드로 제공할 때는 `content_items.section` 같은 명시 필드를 추가한다.
 - 기존 `type`은 콘텐츠 표시 방식이나 원본 미디어를 나타내는 보조 필드로 유지한다.
-- 검색/필터 URL query는 `section`, `category`, `lang`, `q`를 기본으로 사용한다.
+- 검색/필터 URL query는 `section`, `source`(아티클 섹션 전용), `categories`(아티클 섹션 전용, 콤마구분 최대 3개), `lang`, `q`를 기본으로 사용한다.
 
 ## 네이밍 규칙
 
