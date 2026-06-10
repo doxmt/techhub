@@ -102,14 +102,14 @@ export async function runIngestion(): Promise<IngestionResult> {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const dbPayloads = capped.map(({ rssCategories, ...rest }) => rest);
 
-      // 중복 URL은 무시하고 신규 항목만 insert, select id for category linking
+      // 중복 URL은 무시하고 신규 항목만 insert, select id+url for category linking
       const insertResult = await adminClient
         .from("content_items")
         .upsert(dbPayloads as Parameters<ReturnType<typeof adminClient.from>["upsert"]>[0], {
           onConflict: "url",
           ignoreDuplicates: true,
         })
-        .select("id");
+        .select("id, url");
 
       const { data: insertData, error: insertError, count } = insertResult as {
         data: Array<unknown> | null;
@@ -131,11 +131,12 @@ export async function runIngestion(): Promise<IngestionResult> {
       totalCreated += insertedCount;
       totalSkipped += capped.length - insertedCount;
 
-      // 카테고리 연결 (data에 id가 있을 때만)
+      // 카테고리 연결: insertData의 id를 url로 capped payload에 매핑 (index 불일치 방지)
       if (Array.isArray(insertData) && insertData.length > 0 && categoryMap.size > 0) {
-        const categoryInserts = (insertData as Array<{ id: number }>)
-          .flatMap((item, idx) => {
-            const payload = capped[idx];
+        const urlToPayload = new Map(capped.map((p) => [p.url, p]));
+        const categoryInserts = (insertData as Array<{ id: number; url?: string }>)
+          .flatMap((item) => {
+            const payload = item.url ? urlToPayload.get(item.url) : undefined;
             if (!payload) return [];
             const slugs = classifyCategories({
               title: payload.title ?? "",
@@ -152,7 +153,9 @@ export async function runIngestion(): Promise<IngestionResult> {
           });
 
         if (categoryInserts.length > 0) {
-          void adminClient.from("content_categories").insert(categoryInserts);
+          void adminClient
+            .from("content_categories")
+            .upsert(categoryInserts, { ignoreDuplicates: true });
         }
       }
 
