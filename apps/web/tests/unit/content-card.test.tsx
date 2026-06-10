@@ -42,6 +42,13 @@ describe("ContentCard", () => {
     expect(screen.getByText("아티클")).toBeInTheDocument();
   });
 
+  it("뉴스 섹션이면 타입 대신 뉴스 라벨을 렌더한다", () => {
+    render(<ContentCard item={{ ...FIXTURE, section: "news" }} />);
+
+    expect(screen.getByText("뉴스")).toBeInTheDocument();
+    expect(screen.queryByText("아티클")).not.toBeInTheDocument();
+  });
+
   it("thumbnailUrl이 null이면 placeholder를 렌더한다", () => {
     render(<ContentCard item={{ ...FIXTURE, thumbnailUrl: null }} />);
     // 썸네일 이미지가 없을 때 placeholder 요소가 있어야 한다.

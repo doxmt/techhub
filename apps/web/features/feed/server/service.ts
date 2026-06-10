@@ -3,6 +3,8 @@ import { encodeCursor, decodeCursor } from "../../../lib/cursor";
 import { parseSlugId } from "../../../lib/slug";
 import type { ContentType, FeedSection } from "@techhub/shared";
 
+type DbFeedSection = Extract<FeedSection, "article" | "news">;
+
 export type FeedItem = {
   id: string;
   url: string;
@@ -11,6 +13,7 @@ export type FeedItem = {
   thumbnailUrl: string | null;
   source: string | null;
   type: ContentType;
+  section?: DbFeedSection;
   language: string;
   slug: string;
   publishedAt: string;
@@ -46,6 +49,7 @@ type ContentRow = {
   thumbnail: string | null;
   source: string | null;
   type: string;
+  section: string | null;
   language: string | null;
   slug: string;
   published_at: string | null;
@@ -76,6 +80,7 @@ function mapToFeedItem(row: ContentRow): FeedItem {
     thumbnailUrl: row.thumbnail ?? null,
     source: row.source ?? null,
     type: row.type as ContentType,
+    section: row.section === "news" ? "news" : "article",
     language: row.language ?? "ko",
     slug: row.slug,
     publishedAt: row.published_at ?? "",
@@ -112,7 +117,7 @@ export async function getFeed(
   let query = supabase
     .from("content_items")
     .select(
-      `id, title, description, thumbnail, source, type, language, slug, published_at,
+      `id, title, description, thumbnail, source, type, section, language, slug, published_at,
       url, view_count, likes_count,
       ${relationSelect}`,
     )
@@ -173,9 +178,11 @@ export async function getFeed(
     }
   }
 
-  if (filters.section === "article") {
-    query = query.eq("type", "article");
-  } else if (filters.type) {
+  if (filters.section === "article" || filters.section === "news") {
+    query = query.eq("section", filters.section);
+  }
+
+  if (filters.type) {
     query = query.eq("type", filters.type);
   }
 
@@ -242,8 +249,8 @@ export async function getContentBySlugId(
   const { data } = await supabase
     .from("content_items")
     .select(
-      `id, title, description, thumbnail, source, type, language, slug, status, published_at,
-      url,
+      `id, title, description, thumbnail, source, type, section, language, slug, status, published_at,
+      url, view_count, likes_count,
       content_categories(categories(name, slug)),
       content_tags(tags(name))`,
     )

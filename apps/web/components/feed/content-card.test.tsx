@@ -28,6 +28,13 @@ describe("ContentCard", () => {
     expect(screen.getByText("아티클")).toBeInTheDocument();
   });
 
+  it("뉴스 섹션 콘텐츠는 뉴스 라벨로 보여준다", () => {
+    render(<ContentCard item={{ ...item, section: "news" }} />);
+
+    expect(screen.getByText("뉴스")).toBeInTheDocument();
+    expect(screen.queryByText("아티클")).not.toBeInTheDocument();
+  });
+
   it("grid variant를 렌더한다", () => {
     render(<ContentCard item={item} variant="grid" />);
 

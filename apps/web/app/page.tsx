@@ -60,7 +60,7 @@ export default async function HomePage({ searchParams }: Props) {
     }
   }
 
-  const placeholderSections = ["news", "contest", "recommended"];
+  const placeholderSections = ["contest", "recommended"];
   const activeCategories =
     currentSection === "article" ? (filters.categories ?? []) : [];
   const feedFilters = {
@@ -126,13 +126,6 @@ export default async function HomePage({ searchParams }: Props) {
         "해커톤, 챌린지, 개발자 공모전 정보를 별도 섹션으로 모을 예정입니다. 지금은 아티클을 먼저 탐색할 수 있습니다.",
       previewItems: ["해커톤", "오픈소스 챌린지", "기업 기술 공모전"],
     },
-    news: {
-      icon: Newspaper,
-      title: "개발뉴스 데이터 준비중",
-      description:
-        "최신 뉴스는 아티클과 분리된 데이터로 채울 예정입니다. 현재 등록된 콘텐츠는 아티클 탭에서 확인할 수 있습니다.",
-      previewItems: ["기술 릴리즈", "기업 개발 소식", "오픈소스 뉴스"],
-    },
     recommended: {
       icon: Sparkles,
       title: "추천 섹션 준비중",
@@ -142,7 +135,6 @@ export default async function HomePage({ searchParams }: Props) {
     },
   } as const;
   const activePlaceholder =
-    currentSection === "news" ||
     currentSection === "contest" ||
     currentSection === "recommended"
       ? placeholderContent[currentSection]

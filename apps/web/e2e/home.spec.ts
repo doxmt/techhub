@@ -4,7 +4,6 @@ test("renders the public TechHub feed", async ({ page }) => {
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "최신 개발 뉴스" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "개발뉴스 데이터 준비중" })).toBeVisible();
   await expect(page.getByText("TanStack Query v5 마이그레이션 가이드")).toBeHidden();
 });
 

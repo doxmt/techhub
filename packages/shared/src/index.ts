@@ -40,6 +40,16 @@ export const SOURCES = [
 
 export type Source = (typeof SOURCES)[number];
 
+export const NEWS_SOURCES = [
+  "요즘IT",
+  "Techneedle",
+  "dev.to",
+  "GeekNews",
+  "ITWorld Korea",
+] as const;
+
+export type NewsSource = (typeof NEWS_SOURCES)[number];
+
 export const CONTENT_CATEGORIES = CATEGORIES.map((c) => c.name) as unknown as readonly string[];
 
 export const CONTENT_TYPES = ["article", "youtube"] as const;
