@@ -13,6 +13,8 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const RECENT_DATE = new Date(Date.now() - 60 * 60 * 1000).toUTCString(); // 1시간 전
+
 vi.mock("../../../lib/supabase/admin", () => ({
   createAdminClient: vi.fn(),
 }));
@@ -74,11 +76,14 @@ function makeAdminClientMock(options: {
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockResolvedValue({ data: sources, error: null }),
+        update: vi.fn().mockReturnThis(),
       };
     }
     if (table === "ingestion_runs") {
       return {
-        insert: vi.fn().mockResolvedValue(runInsertResult),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockResolvedValue(runInsertResult),
+        }),
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockResolvedValue(runUpdateResult),
       };
@@ -86,10 +91,10 @@ function makeAdminClientMock(options: {
     if (table === "content_items") {
       const result = insertResults[insertCallIndex] ?? { data: null, error: null, count: 0 };
       insertCallIndex++;
+      const withSelect = { select: vi.fn().mockResolvedValue(result) };
       return {
-        insert: vi.fn().mockReturnValue({
-          select: vi.fn().mockResolvedValue(result),
-        }),
+        insert: vi.fn().mockReturnValue(withSelect),
+        upsert: vi.fn().mockReturnValue(withSelect),
       };
     }
     return {
@@ -142,8 +147,8 @@ describe("runIngestion — 신규 URL 처리", () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-        <item><title>A</title><link>https://tech.kakao.com/a/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
-        <item><title>B</title><link>https://tech.kakao.com/b/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+        <item><title>A</title><link>https://tech.kakao.com/a/</link><pubDate>${RECENT_DATE}</pubDate></item>
+        <item><title>B</title><link>https://tech.kakao.com/b/</link><pubDate>${RECENT_DATE}</pubDate></item>
       </channel></rss>`,
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -164,7 +169,7 @@ describe("runIngestion — 신규 URL 처리", () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-        <item><title>A</title><link>https://tech.kakao.com/new-a/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+        <item><title>A</title><link>https://tech.kakao.com/new-a/</link><pubDate>${RECENT_DATE}</pubDate></item>
       </channel></rss>`,
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -195,7 +200,7 @@ describe("runIngestion — 중복 URL 처리", () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-        <item><title>Dup</title><link>https://tech.kakao.com/existing/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+        <item><title>Dup</title><link>https://tech.kakao.com/existing/</link><pubDate>${RECENT_DATE}</pubDate></item>
       </channel></rss>`,
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -217,7 +222,7 @@ describe("runIngestion — 중복 URL 처리", () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-        <item><title>Dup</title><link>https://tech.kakao.com/existing/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+        <item><title>Dup</title><link>https://tech.kakao.com/existing/</link><pubDate>${RECENT_DATE}</pubDate></item>
       </channel></rss>`,
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -238,7 +243,7 @@ describe("runIngestion — 중복 URL 처리", () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-        <item><title>Dup</title><link>https://tech.kakao.com/existing/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+        <item><title>Dup</title><link>https://tech.kakao.com/existing/</link><pubDate>${RECENT_DATE}</pubDate></item>
       </channel></rss>`,
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -275,7 +280,7 @@ describe("runIngestion — 부분 실패 처리", () => {
       return Promise.resolve({
         ok: true,
         text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-          <item><title>B</title><link>https://toss.tech/b/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+          <item><title>B</title><link>https://toss.tech/b/</link><pubDate>${RECENT_DATE}</pubDate></item>
         </channel></rss>`,
       });
     });
@@ -306,7 +311,7 @@ describe("runIngestion — 부분 실패 처리", () => {
       return Promise.resolve({
         ok: true,
         text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-          <item><title>B</title><link>https://toss.tech/b/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+          <item><title>B</title><link>https://toss.tech/b/</link><pubDate>${RECENT_DATE}</pubDate></item>
         </channel></rss>`,
       });
     });
@@ -438,7 +443,7 @@ describe("runIngestion — ingestion_runs 기록", () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-        <item><title>A</title><link>https://tech.kakao.com/a/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+        <item><title>A</title><link>https://tech.kakao.com/a/</link><pubDate>${RECENT_DATE}</pubDate></item>
       </channel></rss>`,
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -464,8 +469,8 @@ describe("runIngestion — ingestion_runs 기록", () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>
-        <item><title>A</title><link>https://tech.kakao.com/a/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
-        <item><title>Dup</title><link>https://tech.kakao.com/existing/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+        <item><title>A</title><link>https://tech.kakao.com/a/</link><pubDate>${RECENT_DATE}</pubDate></item>
+        <item><title>Dup</title><link>https://tech.kakao.com/existing/</link><pubDate>${RECENT_DATE}</pubDate></item>
       </channel></rss>`,
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -496,7 +501,7 @@ describe("runIngestion — 소스당 30건 상한", () => {
     const items = Array.from(
       { length: 31 },
       (_, i) =>
-        `<item><title>Item ${i}</title><link>https://tech.kakao.com/item-${i}/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>`,
+        `<item><title>Item ${i}</title><link>https://tech.kakao.com/item-${i}/</link><pubDate>${RECENT_DATE}</pubDate></item>`,
     ).join("");
 
     const mockFetch = vi.fn().mockResolvedValue({

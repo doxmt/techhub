@@ -9,12 +9,14 @@ const SOURCE = {
   default_language: "ko" as const,
 };
 
+const RECENT_DATE = new Date(Date.now() - 60 * 60 * 1000).toUTCString(); // 1시간 전
+
 const RSS_XML = `<?xml version="1.0"?>
 <rss version="2.0"><channel>
   <item>
     <title>테스트 아티클</title>
     <link>https://tech.kakao.com/2026/01/test/</link>
-    <pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate>
+    <pubDate>${RECENT_DATE}</pubDate>
     <description>테스트 설명입니다.</description>
   </item>
 </channel></rss>`;
@@ -47,7 +49,7 @@ describe("fetchRssAtom", () => {
     const xmlWithNoLink = `<?xml version="1.0"?>
 <rss version="2.0"><channel>
   <item><title>링크없음</title></item>
-  <item><title>링크있음</title><link>https://tech.kakao.com/ok/</link><pubDate>Mon, 15 Jan 2026 09:00:00 +0000</pubDate></item>
+  <item><title>링크있음</title><link>https://tech.kakao.com/ok/</link><pubDate>${RECENT_DATE}</pubDate></item>
 </channel></rss>`;
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
