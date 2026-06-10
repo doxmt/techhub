@@ -1,7 +1,7 @@
 import { parseRssFeed, normalizeItem } from "../parser";
 import type { IngestionSource, ContentItemInsert } from "../parser";
 
-const SINCE_MS = 72 * 60 * 60 * 1000; // TODO: 6/9~10 누락 데이터 수집 후 24h로 복원
+const SINCE_MS = 24 * 60 * 60 * 1000;
 
 export async function fetchRssAtom(
   source: IngestionSource,
