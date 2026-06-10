@@ -5,6 +5,7 @@ import { FeedInfiniteScroll } from "./feed-infinite-scroll";
 
 vi.mock("@/features/feed/server/actions", () => ({
   loadMoreFeed: vi.fn(),
+  incrementViewCount: vi.fn().mockResolvedValue(undefined),
 }));
 
 const item: FeedItem = {

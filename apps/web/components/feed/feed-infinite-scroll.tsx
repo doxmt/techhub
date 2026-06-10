@@ -62,6 +62,16 @@ export function FeedInfiniteScroll({
     return () => observer.disconnect();
   }, [cursor, isLoading]);
 
+  function handlePreview(item: FeedItem) {
+    setPreviewItem({ ...item, viewCount: item.viewCount + 1 });
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id ? { ...i, viewCount: i.viewCount + 1 } : i
+      )
+    );
+    void incrementViewCount(Number(item.id));
+  }
+
   async function handleLoadMore() {
     if (!cursor) return;
     setIsLoading(true);
@@ -101,7 +111,7 @@ export function FeedInfiniteScroll({
             key={item.id}
             item={item}
             variant={view}
-            onPreview={setPreviewItem}
+            onPreview={handlePreview}
             isLoggedIn={isLoggedIn}
           />
         ))}
@@ -132,13 +142,6 @@ export function FeedInfiniteScroll({
           item={previewItem}
           isLoggedIn={isLoggedIn}
           onClose={() => setPreviewItem(null)}
-          onViewCountIncrement={(contentId) => {
-            setItems((prev) =>
-              prev.map((i) =>
-                Number(i.id) === contentId ? { ...i, viewCount: i.viewCount + 1 } : i
-              )
-            );
-          }}
           onLikesCountChange={(contentId, delta) => {
             setItems((prev) =>
               prev.map((i) =>
@@ -166,19 +169,16 @@ function ContentPreviewModal({
   item,
   isLoggedIn,
   onClose,
-  onViewCountIncrement,
   onLikesCountChange,
 }: {
   item: FeedItem;
   isLoggedIn: boolean;
   onClose: () => void;
-  onViewCountIncrement?: (contentId: number) => void;
   onLikesCountChange?: (contentId: number, delta: number) => void;
 }) {
   const [bookmarked, setBookmarked] = useState(item.isBookmarked ?? false);
   const [liked, setLiked] = useState(item.isLiked ?? false);
   const [likesCount, setLikesCount] = useState(item.likesCount);
-  const [viewCount, setViewCount] = useState(item.viewCount);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [, startTransition] = useTransition();
   const typeLabel =
@@ -214,14 +214,6 @@ function ContentPreviewModal({
         setLikesCount((prev) => Math.max(0, prev - delta));
         onLikesCountChange?.(Number(item.id), -delta);
       }
-    });
-  }
-
-  function handleExternalLinkClick() {
-    setViewCount((prev) => prev + 1);
-    onViewCountIncrement?.(Number(item.id));
-    startTransition(async () => {
-      await incrementViewCount(Number(item.id));
     });
   }
 
@@ -314,7 +306,7 @@ function ContentPreviewModal({
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-neutral-500">
             <span>{formatDate(item.publishedAt)}</span>
             <span className="inline-flex items-center gap-1">
-              <Eye className="size-3" aria-hidden="true" />{viewCount}
+              <Eye className="size-3" aria-hidden="true" />{item.viewCount}
             </span>
             <span className="inline-flex items-center gap-1">
               <ThumbsUp className="size-3" aria-hidden="true" />{likesCount}
@@ -373,7 +365,6 @@ function ContentPreviewModal({
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={handleExternalLinkClick}
               className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 text-sm font-medium text-white transition hover:bg-teal-700 dark:bg-teal-500 dark:text-neutral-950 dark:hover:bg-teal-400"
             >
               원문 보기
