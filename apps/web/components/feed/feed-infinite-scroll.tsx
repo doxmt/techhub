@@ -181,7 +181,8 @@ function ContentPreviewModal({
   const [viewCount, setViewCount] = useState(item.viewCount);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [, startTransition] = useTransition();
-  const typeLabel = item.type === "article" ? "아티클" : "영상";
+  const typeLabel =
+    item.section === "news" ? "뉴스" : item.type === "article" ? "아티클" : "영상";
 
   function handleBookmarkClick() {
     if (!isLoggedIn) {

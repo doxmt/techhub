@@ -23,6 +23,13 @@ describe("extractOgMeta", () => {
     expect(extractOgMeta(html).image).toBe("https://example.com/twitter.jpg");
   });
 
+  it("twitter:image:src를 이미지 후보로 사용한다", () => {
+    const html = `<html><head>
+      <meta name="twitter:image:src" content="https://example.com/twitter-src.jpg">
+    </head></html>`;
+    expect(extractOgMeta(html).image).toBe("https://example.com/twitter-src.jpg");
+  });
+
   it("og:description 없으면 meta description을 사용한다", () => {
     const html = `<html><head>
       <meta name="description" content="메타 설명입니다.">
@@ -50,5 +57,12 @@ describe("extractOgMeta", () => {
       <meta property='og:image' content='https://example.com/single.jpg'>
     </head></html>`;
     expect(extractOgMeta(html).image).toBe("https://example.com/single.jpg");
+  });
+
+  it("content 속성의 HTML entity를 디코딩한다", () => {
+    const html = `<html><head>
+      <meta property="og:image" content="https://example.com/thumb.jpg?fit=1200&#038;ssl=1">
+    </head></html>`;
+    expect(extractOgMeta(html).image).toBe("https://example.com/thumb.jpg?fit=1200&ssl=1");
   });
 });

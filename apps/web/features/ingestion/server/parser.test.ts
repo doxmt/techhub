@@ -257,6 +257,28 @@ describe("normalizeItem", () => {
     });
   });
 
+  describe("section 필드", () => {
+    it("section이 없는 기존 소스는 article로 저장한다", () => {
+      const item = { title: "테스트", link: "https://tech.kakao.com/test/", description: "설명" };
+      const payload = normalizeItem(item, SOURCE_KAKAO);
+      expect(payload.section).toBe("article");
+    });
+
+    it("뉴스 소스는 section을 news로 저장한다", () => {
+      const item = { title: "새 개발 뉴스", link: "https://yozm.wishket.com/magazine/detail/1/", description: "설명" };
+      const payload = normalizeItem(item, {
+        id: "news-1",
+        name: "요즘IT",
+        feed_url: "https://yozm.wishket.com/magazine/feed/",
+        feed_type: "rss",
+        default_language: "ko",
+        section: "news",
+      });
+      expect(payload.section).toBe("news");
+      expect(payload.type).toBe("article");
+    });
+  });
+
   describe("language 필드", () => {
     it("language가 소스의 default_language를 따른다", () => {
       const item = { title: "테스트", link: "https://tech.kakao.com/2026/01/15/kotlin-coroutines/", pubDate: "Mon, 15 Jan 2026 09:00:00 +0000", description: "설명" };
@@ -346,6 +368,19 @@ describe("normalizeItem", () => {
       const item = { title: "금융 데이터 처리 파이프라인", link: "https://toss.tech/article/financial-data-pipeline", description: "설명" };
       const payload = normalizeItem(item, SOURCE_TOSS);
       expect(payload.slug).toBe("financial-data-pipeline");
+    });
+
+    it("마지막 path segment가 반복되는 query 기반 URL은 query 값을 slug에 포함한다", () => {
+      const item = { title: "GeekNews 토픽", link: "https://news.hada.io/topic?id=30353", description: "설명" };
+      const payload = normalizeItem(item, {
+        id: "geeknews",
+        name: "GeekNews",
+        feed_url: "https://news.hada.io/rss/news",
+        feed_type: "atom",
+        default_language: "ko",
+        section: "news",
+      });
+      expect(payload.slug).toBe("topic-30353");
     });
   });
 
@@ -479,6 +514,7 @@ describe("normalizeItem", () => {
       const payload = normalizeItem(item, SOURCE_KAKAO);
       expect(payload).toHaveProperty("url");
       expect(payload).toHaveProperty("type");
+      expect(payload).toHaveProperty("section");
       expect(payload).toHaveProperty("title");
       expect(payload).toHaveProperty("slug");
       expect(payload).toHaveProperty("status");

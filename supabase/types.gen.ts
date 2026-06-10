@@ -122,8 +122,10 @@ export type Database = {
           description: string | null
           id: number
           language: string | null
+          likes_count: number
           published_at: string | null
           search_vector: unknown
+          section: string
           slug: string
           source: string | null
           status: string
@@ -132,14 +134,17 @@ export type Database = {
           type: string
           updated_at: string
           url: string
+          view_count: number
         }
         Insert: {
           created_at?: string
           description?: string | null
           id?: never
           language?: string | null
+          likes_count?: number
           published_at?: string | null
           search_vector?: unknown
+          section?: string
           slug: string
           source?: string | null
           status?: string
@@ -148,14 +153,17 @@ export type Database = {
           type: string
           updated_at?: string
           url: string
+          view_count?: number
         }
         Update: {
           created_at?: string
           description?: string | null
           id?: never
           language?: string | null
+          likes_count?: number
           published_at?: string | null
           search_vector?: unknown
+          section?: string
           slug?: string
           source?: string | null
           status?: string
@@ -164,6 +172,7 @@ export type Database = {
           type?: string
           updated_at?: string
           url?: string
+          view_count?: number
         }
         Relationships: []
       }

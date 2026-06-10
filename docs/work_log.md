@@ -88,3 +88,11 @@
 - 이슈 #30 생성: 홈 피드에서 아티클과 개발뉴스 섹션 분리
 - 홈 섹션 동작 조정: `최신 뉴스`는 개발뉴스 전용 준비중 상태로 두고, 현재 DB의 아티클 콘텐츠는 `아티클` 탭에서만 노출
 - 출처와 주제 카테고리 필터를 `아티클` 탭 전용으로 변경하고 다른 섹션으로 이동할 때 `source`, `categories` query를 제거
+
+## 2026-06-10
+- 뉴스 섹션 RSS 수집 계획 구현 시작
+- `sources.section`, `content_items.section` migration 추가 및 기존 데이터 기본값 `article` 유지
+- 뉴스 RSS 소스 5개 추가: 요즘IT, Techneedle, dev.to, GeekNews, ITWorld Korea
+- GeekNews는 `https://news.hada.io/rss/news` Atom feed, ITWorld Korea는 `https://www.itworld.co.kr/feed/` RSS feed로 정상 수집 가능 확인
+- ingestion normalize 단계에서 source section을 content item section으로 전파
+- feed service를 `content_items.section` 필터 기준으로 전환하고, 홈 `news` placeholder 제거

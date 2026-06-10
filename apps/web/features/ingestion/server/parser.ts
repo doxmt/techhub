@@ -27,12 +27,14 @@ export type IngestionSource = {
   feed_url: string;
   feed_type: "rss" | "atom";
   default_language: "ko" | "en";
+  section?: "article" | "news";
 };
 
 export type ContentItemInsert = {
   url: string;
   slug: string;
   type: "article";
+  section: "article" | "news";
   title: string | null;
   description: string | null;
   thumbnail: string | null;
@@ -94,6 +96,10 @@ function slugFromUrl(url: string): string {
     const pathname = parsed.pathname.replace(/\/$/, "");
     const segments = pathname.split("/").filter(Boolean);
     const last = segments[segments.length - 1] ?? "";
+    const idParam = parsed.searchParams.get("id");
+    if (idParam) {
+      return `${last}-${idParam}`.replace(/[^a-zA-Z0-9-]/g, "-");
+    }
     // Medium URL: 마지막 segment에 ?source=rss 파라미터가 붙어있을 수 있음 → 제거
     return last.split("?")[0] ?? last;
   } catch {
@@ -168,6 +174,7 @@ export function normalizeItem(item: FeedItem, source: IngestionSource): ContentI
     url: cleanUrl,
     slug,
     type: "article",
+    section: source.section ?? "article",
     title: item.title ?? null,
     description,
     thumbnail,

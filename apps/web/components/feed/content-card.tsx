@@ -27,7 +27,8 @@ export function ContentCard({
   isLoggedIn = false,
 }: Props) {
   const isPreviewEnabled = Boolean(onPreview);
-  const typeLabel = item.type === "article" ? "아티클" : "영상";
+  const typeLabel =
+    item.section === "news" ? "뉴스" : item.type === "article" ? "아티클" : "영상";
   const formattedDate = formatDate(item.publishedAt);
 
   function openPreview() {

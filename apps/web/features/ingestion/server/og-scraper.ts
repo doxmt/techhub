@@ -3,12 +3,21 @@ export type OgMeta = {
   description: string | null;
 };
 
-const FETCH_TIMEOUT_MS = 8_000;
+const FETCH_TIMEOUT_MS = 12_000;
+
+function decodeHtmlAttr(value: string): string {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&#38;/g, "&")
+    .replace(/&#038;/g, "&")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'");
+}
 
 function extractAttr(html: string, patterns: RegExp[]): string | null {
   for (const pattern of patterns) {
     const match = html.match(pattern);
-    if (match?.[1]) return match[1].trim();
+    if (match?.[1]) return decodeHtmlAttr(match[1].trim());
   }
   return null;
 }
@@ -19,6 +28,8 @@ export function extractOgMeta(html: string): OgMeta {
     /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
     /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
     /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i,
+    /<meta[^>]+name=["']twitter:image:src["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image:src["']/i,
   ]);
 
   const description = extractAttr(html, [
