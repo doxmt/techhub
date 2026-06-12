@@ -118,7 +118,9 @@ export type Database = {
       }
       content_items: {
         Row: {
+          contest_type: string | null
           created_at: string
+          deadline: string | null
           description: string | null
           id: number
           language: string | null
@@ -137,7 +139,9 @@ export type Database = {
           view_count: number
         }
         Insert: {
+          contest_type?: string | null
           created_at?: string
+          deadline?: string | null
           description?: string | null
           id?: never
           language?: string | null
@@ -156,7 +160,9 @@ export type Database = {
           view_count?: number
         }
         Update: {
+          contest_type?: string | null
           created_at?: string
+          deadline?: string | null
           description?: string | null
           id?: never
           language?: string | null

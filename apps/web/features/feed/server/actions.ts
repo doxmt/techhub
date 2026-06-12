@@ -2,8 +2,20 @@
 
 import { getFeed } from "./service";
 import type { FeedItem, FeedFilters } from "./service";
-import type { ContentType, FeedSection } from "@techhub/shared";
-import { CONTENT_TYPES, FEED_SECTIONS, CATEGORY_SLUGS, SOURCES } from "@techhub/shared";
+import type {
+  ContentType,
+  ContestStatus,
+  ContestTypeSlug,
+  FeedSection,
+} from "@techhub/shared";
+import {
+  CONTENT_TYPES,
+  CONTEST_STATUSES,
+  CONTEST_TYPE_SLUGS,
+  FEED_SECTIONS,
+  CATEGORY_SLUGS,
+  SOURCES,
+} from "@techhub/shared";
 import { createClient } from "../../../lib/supabase/server";
 
 export async function loadMoreFeed(input: {
@@ -16,6 +28,8 @@ export async function loadMoreFeed(input: {
   section?: string;
   sort?: string;
   period?: string;
+  cstatus?: string;
+  ctype?: string;
 }): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
   const type =
     input.type !== undefined &&
@@ -28,9 +42,20 @@ export async function loadMoreFeed(input: {
       ? (input.section as FeedSection)
       : undefined;
 
-  if (section === "contest" || section === "recommended" || section === "saved") {
+  if (section === "recommended" || section === "saved") {
     return { items: [], nextCursor: null };
   }
+
+  const cstatus =
+    input.cstatus !== undefined &&
+    (CONTEST_STATUSES as readonly string[]).includes(input.cstatus)
+      ? (input.cstatus as ContestStatus)
+      : undefined;
+  const ctype =
+    input.ctype !== undefined &&
+    (CONTEST_TYPE_SLUGS as readonly string[]).includes(input.ctype)
+      ? (input.ctype as ContestTypeSlug)
+      : undefined;
 
   const categories =
     typeof input.categories === "string" && input.categories.length > 0
@@ -65,6 +90,8 @@ export async function loadMoreFeed(input: {
     section,
     sort,
     period,
+    cstatus,
+    ctype,
   };
 
   const supabase = await createClient();

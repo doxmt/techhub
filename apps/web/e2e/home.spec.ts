@@ -19,8 +19,10 @@ test("switches public hub sections", async ({ page }) => {
 
   await page.getByRole("link", { name: "공모전" }).click();
   await expect(page).toHaveURL(/section=contest/);
-  await expect(page.getByRole("heading", { name: "공모전 데이터 준비중" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "더 보기" })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "개발자 공모전" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "진행중" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "종료됨" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "해커톤" })).toBeVisible();
 });
 
 test("loads a second feed page", async ({ page }) => {

@@ -10,7 +10,13 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
-import { CATEGORIES, NEWS_SOURCES, SOURCES, parseFeedParams } from "@techhub/shared";
+import {
+  CATEGORIES,
+  CONTEST_TYPES,
+  NEWS_SOURCES,
+  SOURCES,
+  parseFeedParams,
+} from "@techhub/shared";
 import { getFeed } from "../features/feed/server/service";
 import { getSavedFeed } from "../features/auth/server/service";
 import { FeedInfiniteScroll } from "../components/feed/feed-infinite-scroll";
@@ -60,9 +66,15 @@ export default async function HomePage({ searchParams }: Props) {
     }
   }
 
-  const placeholderSections = ["contest", "recommended"];
+  const placeholderSections = ["recommended"];
   const activeCategories =
     currentSection === "article" ? (filters.categories ?? []) : [];
+  const currentContestStatus: "open" | "closed" =
+    currentSection === "contest" && filters.cstatus === "closed"
+      ? "closed"
+      : "open";
+  const currentContestType =
+    currentSection === "contest" ? filters.ctype : undefined;
   const sourceOptions: readonly string[] =
     currentSection === "news"
       ? NEWS_SOURCES
@@ -78,6 +90,8 @@ export default async function HomePage({ searchParams }: Props) {
     categories: activeCategories,
     source: currentSource,
     section: currentSection,
+    cstatus: currentSection === "contest" ? currentContestStatus : undefined,
+    ctype: currentContestType,
     sort: currentSort as import("../features/feed/server/service").FeedSort,
     period: currentPeriod as import("../features/feed/server/service").FeedPeriod,
   };
@@ -109,7 +123,7 @@ export default async function HomePage({ searchParams }: Props) {
       value: "contest",
       label: "공모전",
       heading: "개발자 공모전",
-      description: "해커톤, 챌린지, 공모전 정보를 준비하고 있습니다.",
+      description: "진행 중인 해커톤과 개발 공모전을 마감일과 함께 모아봅니다.",
       icon: Trophy,
     },
     {
@@ -130,13 +144,6 @@ export default async function HomePage({ searchParams }: Props) {
   const activeSection =
     sectionTabs.find((tab) => tab.value === currentSection) ?? sectionTabs[0];
   const placeholderContent = {
-    contest: {
-      icon: Trophy,
-      title: "공모전 데이터 준비중",
-      description:
-        "해커톤, 챌린지, 개발자 공모전 정보를 별도 섹션으로 모을 예정입니다. 지금은 아티클을 먼저 탐색할 수 있습니다.",
-      previewItems: ["해커톤", "오픈소스 챌린지", "기업 기술 공모전"],
-    },
     recommended: {
       icon: Sparkles,
       title: "추천 섹션 준비중",
@@ -146,7 +153,6 @@ export default async function HomePage({ searchParams }: Props) {
     },
   } as const;
   const activePlaceholder =
-    currentSection === "contest" ||
     currentSection === "recommended"
       ? placeholderContent[currentSection]
       : null;
@@ -165,6 +171,10 @@ export default async function HomePage({ searchParams }: Props) {
       nextParams.set("source", currentSource);
     }
     if (filters.lang) nextParams.set("lang", filters.lang);
+    if (currentSection === "contest") {
+      if (currentContestStatus === "closed") nextParams.set("cstatus", "closed");
+      if (currentContestType) nextParams.set("ctype", currentContestType);
+    }
     if (currentSection !== "news") nextParams.set("section", currentSection);
     if (currentView === "list") nextParams.set("view", currentView);
     if (currentSort !== "latest") nextParams.set("sort", currentSort);
@@ -186,7 +196,25 @@ export default async function HomePage({ searchParams }: Props) {
     if (section !== "article" && section !== "news") {
       nextParams.delete("source");
     }
+    if (section !== "contest") {
+      nextParams.delete("cstatus");
+      nextParams.delete("ctype");
+    }
     if (section !== "news") nextParams.set("section", section);
+    return paramsHref(nextParams);
+  }
+
+  function contestStatusHref(status: "open" | "closed") {
+    const nextParams = baseParams();
+    nextParams.delete("cstatus");
+    if (status === "closed") nextParams.set("cstatus", "closed");
+    return paramsHref(nextParams);
+  }
+
+  function contestTypeHref(slug?: string) {
+    const nextParams = baseParams();
+    nextParams.delete("ctype");
+    if (slug) nextParams.set("ctype", slug);
     return paramsHref(nextParams);
   }
 
@@ -281,6 +309,12 @@ export default async function HomePage({ searchParams }: Props) {
                   {currentSource && (
                     <input type="hidden" name="source" value={currentSource} />
                   )}
+                  {currentSection === "contest" && currentContestStatus === "closed" && (
+                    <input type="hidden" name="cstatus" value="closed" />
+                  )}
+                  {currentContestType && (
+                    <input type="hidden" name="ctype" value={currentContestType} />
+                  )}
                   {filters.lang && (
                     <input type="hidden" name="lang" value={filters.lang} />
                   )}
@@ -334,6 +368,11 @@ export default async function HomePage({ searchParams }: Props) {
                       lang: filters.lang,
                       section: currentSection !== "news" ? currentSection : undefined,
                       view: currentView === "list" ? currentView : undefined,
+                      cstatus:
+                        currentSection === "contest" && currentContestStatus === "closed"
+                          ? currentContestStatus
+                          : undefined,
+                      ctype: currentContestType,
                     }}
                   />
                   <div
@@ -454,6 +493,75 @@ export default async function HomePage({ searchParams }: Props) {
                       )}
                     </nav>
                   )}
+                </>
+              )}
+
+              {currentSection === "contest" && (
+                <>
+                  <nav
+                    aria-label="진행 상태"
+                    className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                  >
+                    {(
+                      [
+                        { value: "open", label: "진행중" },
+                        { value: "closed", label: "종료됨" },
+                      ] as const
+                    ).map((status) => {
+                      const isActive = currentContestStatus === status.value;
+                      return (
+                        <a
+                          key={status.value}
+                          href={contestStatusHref(status.value)}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                            isActive
+                              ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                              : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                          )}
+                        >
+                          {status.label}
+                        </a>
+                      );
+                    })}
+                  </nav>
+
+                  <nav
+                    aria-label="유형"
+                    className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                  >
+                    <a
+                      href={contestTypeHref(undefined)}
+                      aria-current={!currentContestType ? "page" : undefined}
+                      className={cn(
+                        "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                        !currentContestType
+                          ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                          : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                      )}
+                    >
+                      전체
+                    </a>
+                    {CONTEST_TYPES.map((contestType) => {
+                      const isActive = currentContestType === contestType.slug;
+                      return (
+                        <a
+                          key={contestType.slug}
+                          href={contestTypeHref(isActive ? undefined : contestType.slug)}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                            isActive
+                              ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                              : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                          )}
+                        >
+                          {contestType.name}
+                        </a>
+                      );
+                    })}
+                  </nav>
                 </>
               )}
             </div>

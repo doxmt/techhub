@@ -98,4 +98,49 @@ describe("ContentCard", () => {
     const links = document.querySelectorAll("a[href]");
     expect(links.length).toBeGreaterThan(0);
   });
+
+  describe("공모전 섹션", () => {
+    const CONTEST_FIXTURE: FeedItem = {
+      ...FIXTURE,
+      section: "contest",
+      source: "넥슨",
+      contestType: "hackathon",
+      deadline: new Date(Date.now() + 13 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    it("공모전 유형을 라벨로 표시한다", () => {
+      render(<ContentCard item={CONTEST_FIXTURE} />);
+      expect(screen.getByText("해커톤")).toBeInTheDocument();
+      expect(screen.queryByText("아티클")).not.toBeInTheDocument();
+    });
+
+    it("알 수 없는 유형이면 공모전 라벨로 표시한다", () => {
+      render(<ContentCard item={{ ...CONTEST_FIXTURE, contestType: null }} />);
+      expect(screen.getByText("공모전")).toBeInTheDocument();
+    });
+
+    it("진행중 공모전은 D-day를 표시한다", () => {
+      render(<ContentCard item={CONTEST_FIXTURE} />);
+      expect(screen.getByText(/^D-\d+$/)).toBeInTheDocument();
+    });
+
+    it("마감된 공모전은 마감 라벨을 표시한다", () => {
+      render(
+        <ContentCard
+          item={{ ...CONTEST_FIXTURE, deadline: "2020-01-01T00:00:00.000Z" }}
+        />
+      );
+      expect(screen.getByText("마감")).toBeInTheDocument();
+    });
+
+    it("마감일 없는 공모전은 상시로 표시한다", () => {
+      render(<ContentCard item={{ ...CONTEST_FIXTURE, deadline: null }} />);
+      expect(screen.getByText("상시")).toBeInTheDocument();
+    });
+
+    it("공모전 카드에는 주제 배지를 렌더하지 않는다", () => {
+      render(<ContentCard item={CONTEST_FIXTURE} />);
+      expect(screen.queryByText("Frontend")).not.toBeInTheDocument();
+    });
+  });
 });

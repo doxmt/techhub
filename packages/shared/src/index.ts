@@ -52,6 +52,25 @@ export type NewsSource = (typeof NEWS_SOURCES)[number];
 
 export const CONTENT_CATEGORIES = CATEGORIES.map((c) => c.name) as unknown as readonly string[];
 
+// DB의 content_items.contest_type 값과 일치해야 한다
+export const CONTEST_TYPES = [
+  { name: "해커톤", slug: "hackathon" },
+  { name: "개발 공모전", slug: "dev-contest" },
+  { name: "아이디어 공모전", slug: "idea-contest" },
+  { name: "데이터·AI 경진대회", slug: "data-competition" },
+] as const;
+
+export type ContestType = (typeof CONTEST_TYPES)[number];
+export type ContestTypeSlug = (typeof CONTEST_TYPES)[number]["slug"];
+
+export const CONTEST_TYPE_SLUGS = CONTEST_TYPES.map(
+  (c) => c.slug,
+) as readonly ContestTypeSlug[];
+
+// 공모전 진행 상태: deadline 기준으로 파생된다 (deadline 없으면 상시 → open)
+export const CONTEST_STATUSES = ["open", "closed"] as const;
+export type ContestStatus = (typeof CONTEST_STATUSES)[number];
+
 export const CONTENT_TYPES = ["article", "youtube"] as const;
 export const CONTENT_LANGUAGES = ["ko", "en"] as const;
 export const FEED_SECTIONS = [

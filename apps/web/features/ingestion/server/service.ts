@@ -6,9 +6,11 @@ import { fetchOgMeta } from "./og-scraper";
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_ITEMS_PER_SOURCE = 10;
+// 공모전 목록은 페이지당 16개 안팎이라 상한을 따로 둔다
+const MAX_CONTEST_ITEMS_PER_SOURCE = 30;
 const SOURCE_CONCURRENCY = 5;
 
-type IngestionSection = "article" | "news";
+type IngestionSection = "article" | "news" | "contest";
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type IngestionResult = {
@@ -185,12 +187,20 @@ async function ingestSource(
       clearTimeout(timeoutId);
     }
 
-    const capped = allPayloads.slice(0, MAX_ITEMS_PER_SOURCE);
+    const capped = allPayloads.slice(
+      0,
+      source.section === "contest"
+        ? MAX_CONTEST_ITEMS_PER_SOURCE
+        : MAX_ITEMS_PER_SOURCE,
+    );
 
     // 썸네일 없는 항목: OG 이미지 병렬 폴백
+    // 공모전(위비티) 상세 페이지는 JS 렌더링이라 OG 메타가 비어있으므로 제외한다
     const payloads = await Promise.all(
       capped.map(async (payload) => {
-        if (payload.thumbnail || !payload.url) return payload;
+        if (payload.thumbnail || !payload.url || payload.section === "contest") {
+          return payload;
+        }
         const { image } = await fetchOgMeta(payload.url);
         return image ? { ...payload, thumbnail: image } : payload;
       }),
@@ -244,6 +254,8 @@ async function ingestSource(
         .flatMap((item) => {
           const payload = item.url ? urlToPayload.get(item.url) : undefined;
           if (!payload) return [];
+          // 공모전은 주제 카테고리 대신 contest_type으로 분류한다
+          if (payload.section === "contest") return [];
           const slugs = classifyCategories({
             title: payload.title ?? "",
             description: payload.description,

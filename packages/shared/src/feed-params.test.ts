@@ -85,4 +85,22 @@ describe("parseFeedParams", () => {
     const result = parseFeedParams({ section: "invalid" });
     expect(result.section).toBeUndefined();
   });
+
+  it("유효한 cstatus를 파싱한다", () => {
+    expect(parseFeedParams({ cstatus: "open" }).cstatus).toBe("open");
+    expect(parseFeedParams({ cstatus: "closed" }).cstatus).toBe("closed");
+  });
+
+  it("cstatus가 유효하지 않으면 undefined를 반환한다", () => {
+    expect(parseFeedParams({ cstatus: "invalid" }).cstatus).toBeUndefined();
+  });
+
+  it("유효한 ctype을 파싱한다", () => {
+    expect(parseFeedParams({ ctype: "hackathon" }).ctype).toBe("hackathon");
+    expect(parseFeedParams({ ctype: "idea-contest" }).ctype).toBe("idea-contest");
+  });
+
+  it("ctype이 유효하지 않으면 undefined를 반환한다", () => {
+    expect(parseFeedParams({ ctype: "invalid" }).ctype).toBeUndefined();
+  });
 });

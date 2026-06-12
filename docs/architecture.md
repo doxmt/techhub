@@ -188,14 +188,14 @@ GitHub OAuth 관리자 로그인
 
 ## 데이터 모델
 
-- `content_items`: URL, 미디어 타입(`article`/`youtube`), 제목, 설명, 썸네일, 출처, 언어, slug, 게시 상태, 등록일/수정일
+- `content_items`: URL, 미디어 타입(`article`/`youtube`), 제목, 설명, 썸네일, 출처, 언어, slug, 게시 상태, 등록일/수정일, 마감일(`deadline`, 공모전 전용), 공모전 유형(`contest_type`, 공모전 전용)
 - `categories`: 16개 (fe, be, mobile, cloud, data, security, architecture, performance, testing, ml, llm, ai-agents, open-source, tools, career, game)
 - `tags`: 자유 태그
 - `content_categories`: 콘텐츠와 카테고리 연결 (아티클당 최대 3개)
 - `content_tags`: 콘텐츠와 태그 연결
 - `bookmarks`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
 - `likes`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
-- `sources`: RSS/API 소스 이름, URL, 소스 타입, 기본 언어, 기본 카테고리, 섹션, 활성 상태, 마지막 수집 시각 (아티클 10개 + 뉴스 5개)
+- `sources`: RSS/API 소스 이름, URL, 소스 타입(`rss`/`atom`/`wevity`), 기본 언어, 기본 카테고리, 섹션, 활성 상태, 마지막 수집 시각 (아티클 10개 + 뉴스 5개 + 공모전 1개)
 - `ingestion_runs`: 수집 시작/종료 시각, 상태, 처리/생성/스킵/실패 건수, 오류 메시지
 - `profiles`: Supabase 사용자 id, 이메일, nickname(최대 20자), role('viewer'|'admin'), created_at
 
@@ -203,11 +203,13 @@ GitHub OAuth 관리자 로그인
 
 - 공개 UI의 상위 분류는 URL query의 `section`이다.
 - UI-first 단계의 섹션은 `news`, `article`, `contest`를 사용한다.
-- DB의 `content_items.section` 값으로 `news`와 `article` 피드를 구분한다.
+- DB의 `content_items.section` 값으로 `news`/`article`/`contest` 피드를 구분한다.
 - 기존 콘텐츠와 기존 RSS 소스는 `section='article'`이며, 뉴스 RSS 소스는 `section='news'`로 저장한다.
-- `contest`는 준비중 상태로 처리한다.
+- `contest`는 위비티 IT 카테고리 목록을 스크래핑해 수집하며, 제목 키워드로 개발 관련 공모전만 남긴다.
+- 공모전 진행 상태(진행중/종료)는 별도 컬럼 없이 `deadline` 기준으로 파생한다 (`deadline` 없음 = 상시 → 진행중).
+- 공모전 유형은 `contest_type`(hackathon/dev-contest/idea-contest/data-competition)으로 분류하며 주제 카테고리는 연결하지 않는다.
 - 기존 `type`은 콘텐츠 표시 방식이나 원본 미디어를 나타내는 보조 필드로 유지한다.
-- 검색/필터 URL query는 `section`, `source`(아티클 섹션 전용), `categories`(아티클 섹션 전용, 콤마구분 최대 3개), `lang`, `q`를 기본으로 사용한다.
+- 검색/필터 URL query는 `section`, `source`(아티클 섹션 전용), `categories`(아티클 섹션 전용, 콤마구분 최대 3개), `lang`, `q`를 기본으로 사용하고, 공모전 섹션은 `cstatus`(open/closed)와 `ctype`(공모전 유형)을 추가로 사용한다.
 
 ## 카테고리 분류 방식
 

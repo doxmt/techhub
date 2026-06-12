@@ -1,9 +1,14 @@
 import { createClient } from "../../../lib/supabase/server";
 import { encodeCursor, decodeCursor } from "../../../lib/cursor";
 import { parseSlugId } from "../../../lib/slug";
-import type { ContentType, FeedSection } from "@techhub/shared";
+import type {
+  ContentType,
+  ContestStatus,
+  ContestTypeSlug,
+  FeedSection,
+} from "@techhub/shared";
 
-type DbFeedSection = Extract<FeedSection, "article" | "news">;
+type DbFeedSection = Extract<FeedSection, "article" | "news" | "contest">;
 
 export type FeedItem = {
   id: string;
@@ -21,6 +26,8 @@ export type FeedItem = {
   tags: { name: string }[];
   viewCount: number;
   likesCount: number;
+  deadline?: string | null;
+  contestType?: string | null;
   isBookmarked?: boolean;
   isLiked?: boolean;
 };
@@ -37,6 +44,8 @@ export type FeedFilters = {
   section?: FeedSection;
   sort?: FeedSort;
   period?: FeedPeriod;
+  cstatus?: ContestStatus;
+  ctype?: ContestTypeSlug;
 };
 
 const PAGE_SIZE = 20;
@@ -56,6 +65,8 @@ type ContentRow = {
   status?: string;
   view_count: number;
   likes_count: number;
+  deadline: string | null;
+  contest_type: string | null;
   content_categories: { categories: { name: string; slug: string } | null }[] | null;
   content_tags: { tags: { name: string } | null }[] | null;
 };
@@ -80,12 +91,17 @@ function mapToFeedItem(row: ContentRow): FeedItem {
     thumbnailUrl: row.thumbnail ?? null,
     source: row.source ?? null,
     type: row.type as ContentType,
-    section: row.section === "news" ? "news" : "article",
+    section:
+      row.section === "news" || row.section === "contest"
+        ? row.section
+        : "article",
     language: row.language ?? "ko",
     slug: row.slug,
     publishedAt: row.published_at ?? "",
     viewCount: row.view_count ?? 0,
     likesCount: row.likes_count ?? 0,
+    deadline: row.deadline ?? null,
+    contestType: row.contest_type ?? null,
     categories: dedupeCategories(
       (row.content_categories ?? [])
         .map((cc) => cc.categories)
@@ -118,7 +134,7 @@ export async function getFeed(
     .from("content_items")
     .select(
       `id, title, description, thumbnail, source, type, section, language, slug, published_at,
-      url, view_count, likes_count,
+      url, view_count, likes_count, deadline, contest_type,
       ${relationSelect}`,
     )
     .eq("status", "published")
@@ -178,8 +194,25 @@ export async function getFeed(
     }
   }
 
-  if (filters.section === "article" || filters.section === "news") {
+  if (
+    filters.section === "article" ||
+    filters.section === "news" ||
+    filters.section === "contest"
+  ) {
     query = query.eq("section", filters.section);
+  }
+
+  // 공모전 진행 상태: deadline 기준 파생 (deadline 없음 = 상시 → 진행중)
+  if (filters.section === "contest") {
+    const nowIso = new Date().toISOString();
+    if (filters.cstatus === "closed") {
+      query = query.lt("deadline", nowIso);
+    } else {
+      query = query.or(`deadline.gte.${nowIso},deadline.is.null`);
+    }
+    if (filters.ctype) {
+      query = query.eq("contest_type", filters.ctype);
+    }
   }
 
   if (filters.type) {
@@ -250,7 +283,7 @@ export async function getContentBySlugId(
     .from("content_items")
     .select(
       `id, title, description, thumbnail, source, type, section, language, slug, status, published_at,
-      url, view_count, likes_count,
+      url, view_count, likes_count, deadline, contest_type,
       content_categories(categories(name, slug)),
       content_tags(tags(name))`,
     )

@@ -2,12 +2,16 @@ import {
   CATEGORY_SLUGS,
   CONTENT_LANGUAGES,
   CONTENT_TYPES,
+  CONTEST_STATUSES,
+  CONTEST_TYPE_SLUGS,
   FEED_SECTIONS,
   NEWS_SOURCES,
   SOURCES,
   type CategorySlug,
   type ContentLanguage,
   type ContentType,
+  type ContestStatus,
+  type ContestTypeSlug,
   type FeedSection,
   type NewsSource,
   type Source,
@@ -22,6 +26,8 @@ export function parseFeedParams(params: Record<string, unknown>): {
   type?: ContentType;
   lang?: ContentLanguage;
   section?: FeedSection;
+  cstatus?: ContestStatus;
+  ctype?: ContestTypeSlug;
 } {
   const result: {
     q?: string;
@@ -30,6 +36,8 @@ export function parseFeedParams(params: Record<string, unknown>): {
     type?: ContentType;
     lang?: ContentLanguage;
     section?: FeedSection;
+    cstatus?: ContestStatus;
+    ctype?: ContestTypeSlug;
   } = {};
 
   if (typeof params.q === "string" && params.q.length > 0) {
@@ -72,6 +80,20 @@ export function parseFeedParams(params: Record<string, unknown>): {
     (FEED_SECTIONS as readonly string[]).includes(params.section)
   ) {
     result.section = params.section as FeedSection;
+  }
+
+  if (
+    typeof params.cstatus === "string" &&
+    (CONTEST_STATUSES as readonly string[]).includes(params.cstatus)
+  ) {
+    result.cstatus = params.cstatus as ContestStatus;
+  }
+
+  if (
+    typeof params.ctype === "string" &&
+    (CONTEST_TYPE_SLUGS as readonly string[]).includes(params.ctype)
+  ) {
+    result.ctype = params.ctype as ContestTypeSlug;
   }
 
   return result;

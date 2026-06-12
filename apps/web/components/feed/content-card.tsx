@@ -1,6 +1,8 @@
 import { Eye, ThumbsUp } from "lucide-react";
+import { CONTEST_TYPES } from "@techhub/shared";
 import type { FeedItem } from "@/features/feed/server/service";
 import { cn } from "@/lib/utils";
+import { formatDday } from "@/lib/dday";
 import { ContentActions } from "./content-actions";
 import { ThumbnailImage } from "./thumbnail-image";
 
@@ -27,10 +29,17 @@ export function ContentCard({
   isLoggedIn = false,
 }: Props) {
   const isPreviewEnabled = Boolean(onPreview);
-  const typeLabel =
-    item.section === "news" ? "뉴스" : item.type === "article" ? "아티클" : "영상";
-  const showTopicBadges = item.section !== "news";
+  const isContest = item.section === "contest";
+  const typeLabel = isContest
+    ? (CONTEST_TYPES.find((c) => c.slug === item.contestType)?.name ?? "공모전")
+    : item.section === "news"
+      ? "뉴스"
+      : item.type === "article"
+        ? "아티클"
+        : "영상";
+  const showTopicBadges = item.section !== "news" && !isContest;
   const formattedDate = formatDate(item.publishedAt);
+  const dday = isContest ? formatDday(item.deadline) : null;
 
   function openPreview() {
     onPreview?.(item);
@@ -194,6 +203,18 @@ export function ContentCard({
           )}
 
           <div className="mt-1.5 flex items-center gap-3">
+            {dday && (
+              <span
+                className={cn(
+                  "rounded px-1.5 py-0.5 font-semibold",
+                  dday.closed
+                    ? "bg-neutral-100 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400"
+                    : "bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300",
+                )}
+              >
+                {dday.label}
+              </span>
+            )}
             <span>{formattedDate}</span>
             <span className="inline-flex items-center gap-1">
               <Eye className="size-3" aria-hidden="true" />{item.viewCount}

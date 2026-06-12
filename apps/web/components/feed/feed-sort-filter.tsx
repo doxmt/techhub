@@ -18,6 +18,8 @@ type Props = {
     lang?: string;
     section?: string;
     view?: string;
+    cstatus?: string;
+    ctype?: string;
   };
 };
 

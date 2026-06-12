@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpRight, Bookmark, Eye, ThumbsUp, X } from "lucide-react";
+import { CONTEST_TYPES } from "@techhub/shared";
+import { formatDday } from "@/lib/dday";
 import { ContentCard } from "./content-card";
 import { ThumbnailImage } from "./thumbnail-image";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +22,8 @@ type Filters = {
   section?: string;
   sort?: string;
   period?: string;
+  cstatus?: string;
+  ctype?: string;
 };
 
 type Props = {
@@ -181,9 +185,16 @@ function ContentPreviewModal({
   const [likesCount, setLikesCount] = useState(item.likesCount);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [, startTransition] = useTransition();
-  const typeLabel =
-    item.section === "news" ? "뉴스" : item.type === "article" ? "아티클" : "영상";
-  const showTopicBadges = item.section !== "news";
+  const isContest = item.section === "contest";
+  const typeLabel = isContest
+    ? (CONTEST_TYPES.find((c) => c.slug === item.contestType)?.name ?? "공모전")
+    : item.section === "news"
+      ? "뉴스"
+      : item.type === "article"
+        ? "아티클"
+        : "영상";
+  const showTopicBadges = item.section !== "news" && !isContest;
+  const dday = isContest ? formatDday(item.deadline) : null;
 
   function handleBookmarkClick() {
     if (!isLoggedIn) {
@@ -276,6 +287,18 @@ function ContentPreviewModal({
             <span className="shrink-0 rounded-md bg-teal-50 px-2 py-1 font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
               {typeLabel}
             </span>
+            {dday && (
+              <span
+                className={cn(
+                  "shrink-0 rounded-md px-2 py-1 font-semibold",
+                  dday.closed
+                    ? "bg-neutral-100 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400"
+                    : "bg-teal-600 text-white dark:bg-teal-500 dark:text-neutral-950",
+                )}
+              >
+                {dday.label}
+              </span>
+            )}
             {item.source && (
               <span className="shrink-0 text-neutral-500">{item.source}</span>
             )}

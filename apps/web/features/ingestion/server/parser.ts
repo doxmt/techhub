@@ -25,16 +25,16 @@ export type IngestionSource = {
   id: string | number;
   name: string;
   feed_url: string;
-  feed_type: "rss" | "atom";
+  feed_type: "rss" | "atom" | "wevity";
   default_language: "ko" | "en";
-  section?: "article" | "news";
+  section?: "article" | "news" | "contest";
 };
 
 export type ContentItemInsert = {
   url: string;
   slug: string;
   type: "article";
-  section: "article" | "news";
+  section: "article" | "news" | "contest";
   title: string | null;
   description: string | null;
   thumbnail: string | null;
@@ -42,6 +42,10 @@ export type ContentItemInsert = {
   language: "ko" | "en";
   status: "published";
   published_at: string;
+  // 공모전 전용: 접수 마감일 (NULL이면 상시)
+  deadline?: string | null;
+  // 공모전 전용: 유형 slug
+  contest_type?: string | null;
   // DB 컬럼 아님 — 분류 시 가중치 점수에 사용되는 RSS <category> 원본값
   rssCategories?: string[];
 };
