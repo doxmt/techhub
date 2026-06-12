@@ -96,3 +96,12 @@
 - GeekNews는 `https://news.hada.io/rss/news` Atom feed, ITWorld Korea는 `https://www.itworld.co.kr/feed/` RSS feed로 정상 수집 가능 확인
 - ingestion normalize 단계에서 source section을 content item section으로 전파
 - feed service를 `content_items.section` 필터 기준으로 전환하고, 홈 `news` placeholder 제거
+
+## 2026-06-12
+- 기존 아티클 썸네일 누락 확인: 원격 DB 기준 `section='article'` 2423개 중 `thumbnail IS NULL` 721개
+- 최근 썸네일 누락 아티클을 소스별로 확인 후 OG/D2 API/JSON-LD fallback으로 일부 업데이트
+- D2 원문 페이지는 SPA shell만 반환해 OG 이미지가 없으므로 `https://d2.naver.com/api/v1/contents/{id}`의 `postImage` fallback 필요 확인
+- 우아한형제들은 원본 이미지 도메인이 외부 `<img>`에서 403/timeout으로 깨지는 것을 확인하고, 본문 첫 이미지를 `i0.wp.com` 프록시 썸네일로 우선 보정
+- 우아한형제들 기존 513건 중 502건은 본문 이미지 썸네일로 업데이트하고, 본문 이미지를 찾지 못한 11건만 표시 가능한 공용 배너 fallback 유지
+- NHN Cloud는 페이지 `og:image`로 보정 가능 확인, 최근 누락 10개 업데이트 후 NHN Cloud 썸네일 누락 0개
+- 공용 `fetchOgMeta()`에 D2 API `postImage`, JSON-LD Article image, `property="twitter:image"`, 우아한형제들 표시 가능 썸네일 fallback을 추가해 daily ingest와 OG backfill 모두 신규 썸네일을 더 잘 채우도록 보강
