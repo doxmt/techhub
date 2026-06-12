@@ -71,6 +71,52 @@ export function deadlineFromDday(days: number, now = new Date()): string {
 }
 
 /**
+ * 접수기간 종료일(YYYY-MM-DD)을 KST 23:59:59로 변환한다.
+ */
+function deadlineFromDateString(date: string): string | null {
+  const match = date.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!match) return null;
+  const kstMidnightUtcMs =
+    Date.UTC(
+      parseInt(match[1]!, 10),
+      parseInt(match[2]!, 10) - 1,
+      parseInt(match[3]!, 10),
+    ) - KST_OFFSET_MS;
+  return new Date(kstMidnightUtcMs + DAY_MS - 1000).toISOString();
+}
+
+export type WevityDetail = {
+  homepageUrl: string | null;
+  posterUrl: string | null;
+  deadline: string | null;
+};
+
+/**
+ * 위비티 상세(gbn=viewok) HTML에서 원문 홈페이지, 포스터, 접수 마감일을 추출한다.
+ */
+export function parseWevityDetail(html: string): WevityDetail {
+  const homepageMatch = html.match(
+    /<span class="tit">홈페이지<\/span>\s*<a href="(https?:\/\/[^"]+)"/,
+  );
+
+  const ogImageMatch = html.match(/property="og:image" content="([^"]+)"/);
+  const ogImage = ogImageMatch?.[1] ?? null;
+  const posterUrl =
+    ogImage && ogImage.includes("/upload/contest/") ? ogImage : null;
+
+  const periodMatch = html.match(
+    /접수기간<\/span>\s*[\d.-]+\s*~\s*(\d{4}-\d{1,2}-\d{1,2})/,
+  );
+  const deadline = periodMatch ? deadlineFromDateString(periodMatch[1]!) : null;
+
+  return {
+    homepageUrl: homepageMatch?.[1] ?? null,
+    posterUrl,
+    deadline,
+  };
+}
+
+/**
  * 위비티 공모전 목록 HTML을 파싱해 ContentItemInsert 배열을 반환한다.
  */
 export function parseWevityList(
@@ -136,17 +182,67 @@ export function parseWevityList(
   return items;
 }
 
+const FETCH_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (compatible; TechHubBot/1.0)",
+};
+const DETAIL_CONCURRENCY = 5;
+
+/**
+ * 상세(gbn=viewok) 정보로 항목을 보강한다.
+ * 원문 홈페이지를 url로, 포스터를 thumbnail로, 접수기간 종료일을 deadline으로 사용한다.
+ * 상세 fetch 실패 시 목록 데이터를 그대로 유지한다.
+ */
+async function enrichWithDetail(
+  item: ContentItemInsert,
+  signal: AbortSignal,
+): Promise<ContentItemInsert> {
+  const ix = item.slug.match(/^wevity-(\d+)$/)?.[1];
+  if (!ix) return item;
+
+  try {
+    const response = await fetch(
+      `${WEVITY_ORIGIN}/?c=find&s=1&gub=1&cidx=21&gbn=viewok&ix=${ix}`,
+      { signal, headers: FETCH_HEADERS },
+    );
+    if (!response.ok) return item;
+    const detail = parseWevityDetail(await response.text());
+    return {
+      ...item,
+      url: detail.homepageUrl ?? item.url,
+      thumbnail: detail.posterUrl ?? item.thumbnail,
+      deadline: detail.deadline ?? item.deadline,
+    };
+  } catch {
+    return item;
+  }
+}
+
 export async function fetchWevity(
   source: IngestionSource,
   signal: AbortSignal,
 ): Promise<ContentItemInsert[]> {
   const response = await fetch(source.feed_url, {
     signal,
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; TechHubBot/1.0)",
-    },
+    headers: FETCH_HEADERS,
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const html = await response.text();
-  return parseWevityList(html, source);
+  const items = parseWevityList(html, source);
+
+  const enriched = new Array<ContentItemInsert>(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      enriched[currentIndex] = await enrichWithDetail(items[currentIndex]!, signal);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(DETAIL_CONCURRENCY, items.length) }, () =>
+      worker(),
+    ),
+  );
+
+  return enriched;
 }

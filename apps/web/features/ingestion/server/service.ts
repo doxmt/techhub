@@ -195,10 +195,14 @@ async function ingestSource(
     );
 
     // 썸네일 없는 항목: OG 이미지 병렬 폴백
-    // 공모전(위비티) 상세 페이지는 JS 렌더링이라 OG 메타가 비어있으므로 제외한다
+    // 위비티 URL은 OG 메타가 사이트 공통 이미지라 제외한다 (원문 홈페이지 URL은 폴백 허용)
     const payloads = await Promise.all(
       capped.map(async (payload) => {
-        if (payload.thumbnail || !payload.url || payload.section === "contest") {
+        if (
+          payload.thumbnail ||
+          !payload.url ||
+          payload.url.includes("wevity.com")
+        ) {
           return payload;
         }
         const { image } = await fetchOgMeta(payload.url);

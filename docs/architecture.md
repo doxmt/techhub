@@ -206,7 +206,7 @@ GitHub OAuth 관리자 로그인
 - DB의 `content_items.section` 값으로 `news`/`article`/`contest` 피드를 구분한다.
 - 기존 콘텐츠와 기존 RSS 소스는 `section='article'`이며, 뉴스 RSS 소스는 `section='news'`로 저장한다.
 - `contest`는 위비티 게임/소프트웨어(cidx=21)·웹/모바일/IT(cidx=20) 목록을 스크래핑해 수집하며, 제목 키워드로 개발 관련 공모전만 남긴다. 항목 URL은 위비티 `ix` 기준으로 정규화해 카테고리 간 중복을 제거한다.
-- 공모전 썸네일은 위비티 목록의 스페셜 배너 포스터에서만 얻을 수 있다. 수집 시점에 포스터가 없으면 비워 두고, 이후 스페셜로 노출되면 cron이 채운다 (상세 페이지는 JS 렌더링이라 OG/포스터 추출 불가).
+- 공모전은 위비티 상세(gbn=viewok) 페이지를 항목별로 fetch해 원문 홈페이지를 `url`로, 포스터(og:image)를 `thumbnail`로, 접수기간 종료일을 `deadline`으로 사용한다. 홈페이지가 없으면 위비티 상세 URL로 폴백한다. 중복 제거 키는 slug(`wevity-{ix}`)가 아닌 `url`이므로 상세 보강 실패 시에도 동작한다.
 - 공모전 진행 상태(진행중/종료)는 별도 컬럼 없이 `deadline` 기준으로 파생한다 (`deadline` 없음 = 상시 → 진행중).
 - 공모전 유형은 `contest_type`(hackathon/dev-contest/idea-contest/data-competition)으로 분류하며 주제 카테고리는 연결하지 않는다.
 - 기존 `type`은 콘텐츠 표시 방식이나 원본 미디어를 나타내는 보조 필드로 유지한다.

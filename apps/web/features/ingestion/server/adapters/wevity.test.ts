@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   fetchWevity,
   parseWevityList,
+  parseWevityDetail,
   classifyContestType,
   deadlineFromDday,
   isDevContest,
@@ -211,21 +212,103 @@ describe("deadlineFromDday", () => {
   });
 });
 
+const DETAIL_HTML = `
+<meta property="og:image" content="https://www.wevity.com/upload/contest/20260606170440_f98bad36.jpg" id="og_image"/>
+<ul>
+  <li class="dday-area">
+    <span class="tit">접수기간</span>
+    2026-06-04 ~ 2026-07-19
+    <span class="cil-dday">D-37</span>
+  </li>
+  <li>
+    <span class="tit">홈페이지</span>
+    <a href="https://example.com/contest" target="_blank">https://example.com/contest</a>
+  </li>
+</ul>
+`;
+
+describe("parseWevityDetail", () => {
+  it("홈페이지 링크, 포스터, 접수 마감일을 추출한다", () => {
+    const result = parseWevityDetail(DETAIL_HTML);
+    expect(result.homepageUrl).toBe("https://example.com/contest");
+    expect(result.posterUrl).toBe(
+      "https://www.wevity.com/upload/contest/20260606170440_f98bad36.jpg",
+    );
+    // 접수기간 종료일 2026-07-19의 KST 23:59:59
+    expect(result.deadline).toBe("2026-07-19T14:59:59.000Z");
+  });
+
+  it("정보가 없으면 null을 반환한다", () => {
+    const result = parseWevityDetail("<html></html>");
+    expect(result.homepageUrl).toBeNull();
+    expect(result.posterUrl).toBeNull();
+    expect(result.deadline).toBeNull();
+  });
+
+  it("og:image가 공모전 포스터가 아니면 무시한다", () => {
+    const result = parseWevityDetail(
+      '<meta property="og:image" content="https://www.wevity.com/images/main_img16.png"/>',
+    );
+    expect(result.posterUrl).toBeNull();
+  });
+});
+
 describe("fetchWevity", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("정상 응답이면 ContentItemInsert 배열을 반환한다", async () => {
+  function stubFetch() {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, text: async () => LIST_HTML }),
+      vi.fn().mockImplementation(async (input: string) => {
+        const target = String(input);
+        if (target.includes("gbn=viewok")) {
+          return { ok: true, text: async () => DETAIL_HTML };
+        }
+        return { ok: true, text: async () => LIST_HTML };
+      }),
     );
+  }
+
+  it("정상 응답이면 ContentItemInsert 배열을 반환한다", async () => {
+    stubFetch();
 
     const result = await fetchWevity(SOURCE, new AbortController().signal);
     expect(result).toHaveLength(2);
     expect(result[0]!.section).toBe("contest");
   });
 
-  it("HTTP 오류면 예외를 던진다", async () => {
+  it("상세 페이지의 원문 링크/포스터/마감일로 항목을 보강한다", async () => {
+    stubFetch();
+
+    const result = await fetchWevity(SOURCE, new AbortController().signal);
+    expect(result[0]!.url).toBe("https://example.com/contest");
+    expect(result[0]!.thumbnail).toBe(
+      "https://www.wevity.com/upload/contest/20260606170440_f98bad36.jpg",
+    );
+    expect(result[0]!.deadline).toBe("2026-07-19T14:59:59.000Z");
+    // slug는 위비티 ix 기준으로 유지된다 (중복 제거 키)
+    expect(result[0]!.slug).toBe("wevity-107947");
+  });
+
+  it("상세 페이지 fetch가 실패하면 목록 데이터로 유지한다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: string) => {
+        if (String(input).includes("gbn=viewok")) {
+          return { ok: false, status: 500 };
+        }
+        return { ok: true, text: async () => LIST_HTML };
+      }),
+    );
+
+    const result = await fetchWevity(SOURCE, new AbortController().signal);
+    expect(result).toHaveLength(2);
+    expect(result[0]!.url).toBe(
+      "https://www.wevity.com/?c=find&s=1&gub=1&cidx=21&gbn=view&ix=107947",
+    );
+  });
+
+  it("목록 HTTP 오류면 예외를 던진다", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 }));
 
     await expect(fetchWevity(SOURCE, new AbortController().signal)).rejects.toThrow(
