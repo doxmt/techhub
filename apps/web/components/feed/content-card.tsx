@@ -29,6 +29,7 @@ export function ContentCard({
   const isPreviewEnabled = Boolean(onPreview);
   const typeLabel =
     item.section === "news" ? "뉴스" : item.type === "article" ? "아티클" : "영상";
+  const showTopicBadges = item.section !== "news";
   const formattedDate = formatDate(item.publishedAt);
 
   function openPreview() {
@@ -179,7 +180,7 @@ export function ContentCard({
             )}
           </div>
 
-          {item.categories.length > 0 && (
+          {showTopicBadges && item.categories.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {item.categories.map((category) => (
                 <span

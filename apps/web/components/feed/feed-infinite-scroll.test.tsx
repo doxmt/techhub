@@ -69,4 +69,27 @@ describe("FeedInfiniteScroll", () => {
     expect(screen.getAllByText("Frontend")).toHaveLength(2);
     expect(screen.getAllByText("Performance")).toHaveLength(2);
   });
+
+  it("뉴스 프리뷰에서는 주제와 태그를 숨긴다", () => {
+    render(
+      <FeedInfiniteScroll
+        initialItems={[{
+          ...item,
+          section: "news",
+          tags: [{ name: "React" }],
+        }]}
+        nextCursor={null}
+        filters={{ section: "news" }}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /섹션 테스트 콘텐츠/i })
+    );
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByText("Frontend")).not.toBeInTheDocument();
+    expect(screen.queryByText("Performance")).not.toBeInTheDocument();
+    expect(screen.queryByText("React")).not.toBeInTheDocument();
+  });
 });

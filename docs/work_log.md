@@ -105,3 +105,7 @@
 - 우아한형제들 기존 513건 중 502건은 본문 이미지 썸네일로 업데이트하고, 본문 이미지를 찾지 못한 11건만 표시 가능한 공용 배너 fallback 유지
 - NHN Cloud는 페이지 `og:image`로 보정 가능 확인, 최근 누락 10개 업데이트 후 NHN Cloud 썸네일 누락 0개
 - 공용 `fetchOgMeta()`에 D2 API `postImage`, JSON-LD Article image, `property="twitter:image"`, 우아한형제들 표시 가능 썸네일 fallback을 추가해 daily ingest와 OG backfill 모두 신규 썸네일을 더 잘 채우도록 보강
+- daily ingest 안정화: `content_items` upsert count를 명시하고, 카테고리 연결 및 `sources.last_ingested_at` 갱신을 await하도록 수정
+- daily ingest route를 뉴스/아티클로 분리하고 Vercel maxDuration 60초 지정, 소스 동시성 제한과 소스당 10건 상한 적용
+- 원격 DB에서 `section='article'`로 잘못 들어간 dev.to 24건 삭제
+- 뉴스 소스 보정 migration 추가: dev.to article 오등록분 삭제, 다른 뉴스 소스 article 오등록분 `news` 보정, stale running run failed 처리

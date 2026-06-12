@@ -10,7 +10,7 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
-import { CATEGORIES, SOURCES, parseFeedParams } from "@techhub/shared";
+import { CATEGORIES, NEWS_SOURCES, SOURCES, parseFeedParams } from "@techhub/shared";
 import { getFeed } from "../features/feed/server/service";
 import { getSavedFeed } from "../features/auth/server/service";
 import { FeedInfiniteScroll } from "../components/feed/feed-infinite-scroll";
@@ -63,9 +63,20 @@ export default async function HomePage({ searchParams }: Props) {
   const placeholderSections = ["contest", "recommended"];
   const activeCategories =
     currentSection === "article" ? (filters.categories ?? []) : [];
+  const sourceOptions: readonly string[] =
+    currentSection === "news"
+      ? NEWS_SOURCES
+      : currentSection === "article"
+        ? SOURCES
+        : [];
+  const currentSource =
+    filters.source && sourceOptions.includes(filters.source)
+      ? filters.source
+      : undefined;
   const feedFilters = {
     ...filters,
     categories: activeCategories,
+    source: currentSource,
     section: currentSection,
     sort: currentSort as import("../features/feed/server/service").FeedSort,
     period: currentPeriod as import("../features/feed/server/service").FeedPeriod,
@@ -143,7 +154,6 @@ export default async function HomePage({ searchParams }: Props) {
   const showSavedLoginRequired = currentSection === "saved" && !authUser;
 
   const currentCategories = activeCategories;
-  const currentSource = currentSection === "article" ? filters.source : undefined;
 
   function baseParams() {
     const nextParams = new URLSearchParams();
@@ -151,7 +161,7 @@ export default async function HomePage({ searchParams }: Props) {
     if (currentSection === "article" && currentCategories.length > 0) {
       nextParams.set("categories", currentCategories.join(","));
     }
-    if (currentSection === "article" && currentSource) {
+    if ((currentSection === "article" || currentSection === "news") && currentSource) {
       nextParams.set("source", currentSource);
     }
     if (filters.lang) nextParams.set("lang", filters.lang);
@@ -172,6 +182,8 @@ export default async function HomePage({ searchParams }: Props) {
     nextParams.delete("section");
     if (section !== "article") {
       nextParams.delete("categories");
+    }
+    if (section !== "article" && section !== "news") {
       nextParams.delete("source");
     }
     if (section !== "news") nextParams.set("section", section);
@@ -358,7 +370,7 @@ export default async function HomePage({ searchParams }: Props) {
                 </div>
               </div>
 
-              {currentSection === "article" && (
+              {(currentSection === "article" || currentSection === "news") && (
                 <>
                   <nav
                     aria-label="출처"
@@ -376,7 +388,7 @@ export default async function HomePage({ searchParams }: Props) {
                     >
                       전체
                     </a>
-                    {SOURCES.map((source) => {
+                    {sourceOptions.map((source) => {
                       const isActive = currentSource === source;
                       return (
                         <a
@@ -396,50 +408,52 @@ export default async function HomePage({ searchParams }: Props) {
                     })}
                   </nav>
 
-                  <nav
-                    aria-label="주제"
-                    className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
-                  >
-                    <a
-                      href={clearCategoriesHref()}
-                      aria-current={currentCategories.length === 0 ? "page" : undefined}
-                      className={cn(
-                        "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
-                        currentCategories.length === 0
-                          ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
-                          : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
-                      )}
+                  {currentSection === "article" && (
+                    <nav
+                      aria-label="주제"
+                      className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
                     >
-                      전체
-                    </a>
-                    {CATEGORIES.map((category) => {
-                      const isActive = currentCategories.includes(category.slug);
-                      const isDisabled = !isActive && currentCategories.length >= 3;
-                      return (
-                        <a
-                          key={category.slug}
-                          href={isDisabled ? "#" : toggleCategoryHref(category.slug)}
-                          aria-current={isActive ? "page" : undefined}
-                          aria-disabled={isDisabled}
-                          className={cn(
-                            "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
-                            isActive
-                              ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
-                              : isDisabled
-                                ? "cursor-not-allowed border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-600"
-                                : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
-                          )}
-                        >
-                          {category.name}
-                        </a>
-                      );
-                    })}
-                    {currentCategories.length > 0 && (
-                      <span className="inline-flex h-8 shrink-0 items-center px-1 text-xs text-neutral-400">
-                        {currentCategories.length}/3
-                      </span>
-                    )}
-                  </nav>
+                      <a
+                        href={clearCategoriesHref()}
+                        aria-current={currentCategories.length === 0 ? "page" : undefined}
+                        className={cn(
+                          "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                          currentCategories.length === 0
+                            ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                            : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                        )}
+                      >
+                        전체
+                      </a>
+                      {CATEGORIES.map((category) => {
+                        const isActive = currentCategories.includes(category.slug);
+                        const isDisabled = !isActive && currentCategories.length >= 3;
+                        return (
+                          <a
+                            key={category.slug}
+                            href={isDisabled ? "#" : toggleCategoryHref(category.slug)}
+                            aria-current={isActive ? "page" : undefined}
+                            aria-disabled={isDisabled}
+                            className={cn(
+                              "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                              isActive
+                                ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                                : isDisabled
+                                  ? "cursor-not-allowed border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-600"
+                                  : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                            )}
+                          >
+                            {category.name}
+                          </a>
+                        );
+                      })}
+                      {currentCategories.length > 0 && (
+                        <span className="inline-flex h-8 shrink-0 items-center px-1 text-xs text-neutral-400">
+                          {currentCategories.length}/3
+                        </span>
+                      )}
+                    </nav>
+                  )}
                 </>
               )}
             </div>
