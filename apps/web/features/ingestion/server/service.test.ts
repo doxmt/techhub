@@ -73,10 +73,18 @@ function makeAdminClientMock(options: {
 
   const fromMock = vi.fn().mockImplementation((table: string) => {
     if (table === "sources") {
+      const selectBuilder = {
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+      };
+      (selectBuilder as unknown as Promise<unknown>).then = (resolve: (v: unknown) => unknown) =>
+        Promise.resolve({ data: sources, error: null }).then(resolve);
+
       return {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockResolvedValue({ data: sources, error: null }),
-        update: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnValue(selectBuilder),
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
       };
     }
     if (table === "ingestion_runs") {

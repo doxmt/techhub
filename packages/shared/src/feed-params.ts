@@ -3,18 +3,22 @@ import {
   CONTENT_LANGUAGES,
   CONTENT_TYPES,
   FEED_SECTIONS,
+  NEWS_SOURCES,
   SOURCES,
   type CategorySlug,
   type ContentLanguage,
   type ContentType,
   type FeedSection,
+  type NewsSource,
   type Source,
 } from "./index";
+
+type FeedSource = Source | NewsSource;
 
 export function parseFeedParams(params: Record<string, unknown>): {
   q?: string;
   categories?: CategorySlug[];
-  source?: Source;
+  source?: FeedSource;
   type?: ContentType;
   lang?: ContentLanguage;
   section?: FeedSection;
@@ -22,7 +26,7 @@ export function parseFeedParams(params: Record<string, unknown>): {
   const result: {
     q?: string;
     categories?: CategorySlug[];
-    source?: Source;
+    source?: FeedSource;
     type?: ContentType;
     lang?: ContentLanguage;
     section?: FeedSection;
@@ -44,9 +48,9 @@ export function parseFeedParams(params: Record<string, unknown>): {
 
   if (
     typeof params.source === "string" &&
-    (SOURCES as readonly string[]).includes(params.source)
+    ([...SOURCES, ...NEWS_SOURCES] as readonly string[]).includes(params.source)
   ) {
-    result.source = params.source as Source;
+    result.source = params.source as FeedSource;
   }
 
   if (

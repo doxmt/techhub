@@ -183,6 +183,7 @@ function ContentPreviewModal({
   const [, startTransition] = useTransition();
   const typeLabel =
     item.section === "news" ? "뉴스" : item.type === "article" ? "아티클" : "영상";
+  const showTopicBadges = item.section !== "news";
 
   function handleBookmarkClick() {
     if (!isLoggedIn) {
@@ -278,14 +279,15 @@ function ContentPreviewModal({
             {item.source && (
               <span className="shrink-0 text-neutral-500">{item.source}</span>
             )}
-            {item.categories.map((category) => (
-              <span
-                key={category.slug}
-                className="shrink-0 rounded-md border border-neutral-200 px-2 py-1 font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
-              >
-                {category.name}
-              </span>
-            ))}
+            {showTopicBadges &&
+              item.categories.map((category) => (
+                <span
+                  key={category.slug}
+                  className="shrink-0 rounded-md border border-neutral-200 px-2 py-1 font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
+                >
+                  {category.name}
+                </span>
+              ))}
           </div>
 
           <div className="flex items-start gap-3">
@@ -313,7 +315,7 @@ function ContentPreviewModal({
             </span>
           </div>
 
-          {item.tags.length > 0 && (
+          {showTopicBadges && item.tags.length > 0 && (
             <div className="mt-5 flex flex-wrap gap-2">
               {item.tags.map((tag) => (
                 <span

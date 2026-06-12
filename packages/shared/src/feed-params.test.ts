@@ -46,6 +46,11 @@ describe("parseFeedParams", () => {
     expect(result.source).toBeUndefined();
   });
 
+  it("뉴스 source를 파싱한다", () => {
+    const result = parseFeedParams({ section: "news", source: "dev.to" });
+    expect(result.source).toBe("dev.to");
+  });
+
   it("type이 유효하지 않으면 undefined를 반환한다", () => {
     const result = parseFeedParams({ type: "invalid" });
     expect(result.type).toBeUndefined();
