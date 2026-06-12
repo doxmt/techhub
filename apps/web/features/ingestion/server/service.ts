@@ -277,6 +277,19 @@ async function ingestSource(
       }
     }
 
+    // 공모전: 포스터는 스페셜 배너 노출 시점에만 얻을 수 있으므로
+    // 이미 수집된 항목도 썸네일이 비어 있으면 새로 채운다
+    const contestThumbnailPayloads = payloads.filter(
+      (payload) => payload.section === "contest" && payload.thumbnail,
+    );
+    for (const payload of contestThumbnailPayloads) {
+      await adminClient
+        .from("content_items")
+        .update({ thumbnail: payload.thumbnail })
+        .eq("url", payload.url)
+        .is("thumbnail", null);
+    }
+
     // last_ingested_at 갱신 (실패해도 소스 처리 실패로 카운트하지 않음)
     await updateLastIngested(adminClient, source.id);
 

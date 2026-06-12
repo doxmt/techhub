@@ -5,6 +5,10 @@ const WEVITY_ORIGIN = "https://www.wevity.com";
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// 스페셜 배너 영역의 포스터 이미지 (ix → /upload/contest/... 매핑)
+const POSTER_PATTERN =
+  /ix=(\d+)"[^>]*>\s*<img src="(\/upload\/contest\/[^"]+)"/g;
+
 // 목록의 한 항목: tit 안의 anchor → organ(주최) → day(D-day) 순서로 나타난다
 const ITEM_PATTERN =
   /<div class="tit">\s*<a href="([^"]+)">([\s\S]*?)<\/a>\s*(?:<div class="sub-tit">([\s\S]*?)<\/div>)?[\s\S]*?<div class="organ">([\s\S]*?)<\/div>\s*<div class="day">([\s\S]*?)<\/div>/g;
@@ -76,6 +80,14 @@ export function parseWevityList(
 ): ContentItemInsert[] {
   const items: ContentItemInsert[] = [];
 
+  // 포스터는 스페셜 배너로 노출된 항목만 목록에서 얻을 수 있다
+  const posterMap = new Map<string, string>();
+  for (const match of html.matchAll(POSTER_PATTERN)) {
+    if (!posterMap.has(match[1]!)) {
+      posterMap.set(match[1]!, `${WEVITY_ORIGIN}${match[2]}`);
+    }
+  }
+
   for (const match of html.matchAll(ITEM_PATTERN)) {
     const [, href, titleHtml, subTitHtml, organHtml, dayHtml] = match;
 
@@ -111,7 +123,7 @@ export function parseWevityList(
       section: "contest",
       title,
       description,
-      thumbnail: null,
+      thumbnail: posterMap.get(ix!) ?? null,
       source: organizer || source.name,
       language: source.default_language,
       status: "published",

@@ -17,6 +17,16 @@ const SOURCE = {
 };
 
 const LIST_HTML = `
+<div class="ms-mbnr">
+  <ul class="ms-mbnr-sd">
+    <li>
+      <a href="?c=find&s=1&gub=1&cidx=21&gbn=view&gp=1&ix=107947"><img src="/upload/contest/20260606170440_f98bad36.jpg" alt="넥슨 영 프로그래머스 컵"></a>
+      <div class="hide-info">
+        <div class="hide-dday">D-37</div>
+      </div>
+    </li>
+  </ul>
+</div>
 <ul class="list">
   <li class="top">
     <div class="tit">
@@ -87,9 +97,16 @@ describe("parseWevityList", () => {
     expect(result[1]!.contest_type).toBe("idea-contest");
   });
 
-  it("썸네일은 null로 둔다", () => {
+  it("스페셜 배너에 포스터가 있으면 절대경로 썸네일로 사용한다", () => {
     const result = parseWevityList(LIST_HTML, SOURCE);
-    expect(result[0]!.thumbnail).toBeNull();
+    expect(result[0]!.thumbnail).toBe(
+      "https://www.wevity.com/upload/contest/20260606170440_f98bad36.jpg",
+    );
+  });
+
+  it("포스터가 없는 항목은 썸네일을 null로 둔다", () => {
+    const result = parseWevityList(LIST_HTML, SOURCE);
+    expect(result[1]!.thumbnail).toBeNull();
   });
 });
 
