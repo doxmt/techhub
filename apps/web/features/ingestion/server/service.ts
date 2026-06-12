@@ -5,9 +5,11 @@ import { classifyCategories } from "./classify";
 import { fetchOgMeta } from "./og-scraper";
 
 const FETCH_TIMEOUT_MS = 10_000;
+// 공모전은 목록 여러 페이지 + 항목별 상세 fetch가 필요해 타임아웃을 따로 둔다
+const CONTEST_FETCH_TIMEOUT_MS = 45_000;
 const MAX_ITEMS_PER_SOURCE = 10;
-// 공모전 목록은 페이지당 16개 안팎이라 상한을 따로 둔다
-const MAX_CONTEST_ITEMS_PER_SOURCE = 30;
+// 공모전 목록은 페이지당 16개 안팎 × 3페이지라 상한을 따로 둔다
+const MAX_CONTEST_ITEMS_PER_SOURCE = 60;
 const SOURCE_CONCURRENCY = 5;
 
 type IngestionSection = "article" | "news" | "contest";
@@ -178,7 +180,10 @@ async function ingestSource(
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      source.section === "contest" ? CONTEST_FETCH_TIMEOUT_MS : FETCH_TIMEOUT_MS,
+    );
 
     let allPayloads: Awaited<ReturnType<FeedAdapter>>;
     try {

@@ -315,4 +315,56 @@ describe("fetchWevity", () => {
       "HTTP 500",
     );
   });
+
+  it("여러 페이지를 수집하고 페이지 간 중복(ix)을 제거한다", async () => {
+    const PAGE2_HTML = `
+<ul class="list">
+  <li>
+    <div class="tit">
+      <a href="?c=find&s=1&gub=1&cidx=21&gbn=view&gp=2&ix=107947">넥슨 영 프로그래머스 컵</a>
+      <div class="sub-tit">분야 : 웹/모바일/IT</div>
+    </div>
+    <div class="organ">넥슨</div>
+    <div class="day">
+      D-37 <span class="dday ing">접수중</span>
+    </div>
+    <div class="read">1</div>
+  </li>
+  <li>
+    <div class="tit">
+      <a href="?c=find&s=1&gub=1&cidx=21&gbn=view&gp=2&ix=105000">예전에 등록된 코딩 경진대회</a>
+      <div class="sub-tit">분야 : 웹/모바일/IT</div>
+    </div>
+    <div class="organ">한국정보화진흥원</div>
+    <div class="day">
+      D-50 <span class="dday ing">접수중</span>
+    </div>
+    <div class="read">1</div>
+  </li>
+</ul>
+`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: string) => {
+        const target = String(input);
+        if (target.includes("gbn=viewok")) {
+          return { ok: true, text: async () => DETAIL_HTML };
+        }
+        if (target.includes("gp=2")) {
+          return { ok: true, text: async () => PAGE2_HTML };
+        }
+        if (target.includes("gp=3")) {
+          return { ok: true, text: async () => "<ul class='list'></ul>" };
+        }
+        return { ok: true, text: async () => LIST_HTML };
+      }),
+    );
+
+    const result = await fetchWevity(SOURCE, new AbortController().signal);
+    const slugs = result.map((item) => item.slug);
+    // 1페이지 2건 + 2페이지 신규 1건 (ix=107947은 중복 제거)
+    expect(slugs).toHaveLength(3);
+    expect(slugs.filter((slug) => slug === "wevity-107947")).toHaveLength(1);
+    expect(slugs).toContain("wevity-105000");
+  });
 });

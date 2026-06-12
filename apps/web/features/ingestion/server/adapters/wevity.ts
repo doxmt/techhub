@@ -186,6 +186,8 @@ const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0 (compatible; TechHubBot/1.0)",
 };
 const DETAIL_CONCURRENCY = 5;
+// 목록은 등록순이라 여러 페이지를 가져오면 예전에 등록된 접수중 공모전까지 수집된다
+const MAX_LIST_PAGES = 3;
 
 /**
  * 상세(gbn=viewok) 정보로 항목을 보강한다.
@@ -221,13 +223,23 @@ export async function fetchWevity(
   source: IngestionSource,
   signal: AbortSignal,
 ): Promise<ContentItemInsert[]> {
-  const response = await fetch(source.feed_url, {
-    signal,
-    headers: FETCH_HEADERS,
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const html = await response.text();
-  const items = parseWevityList(html, source);
+  const items: ContentItemInsert[] = [];
+  const seenSlugs = new Set<string>();
+
+  for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
+    const response = await fetch(`${source.feed_url}&gp=${page}`, {
+      signal,
+      headers: FETCH_HEADERS,
+    });
+    if (!response.ok) {
+      if (page === 1) throw new Error(`HTTP ${response.status}`);
+      break;
+    }
+    const pageItems = parseWevityList(await response.text(), source);
+    const freshItems = pageItems.filter((item) => !seenSlugs.has(item.slug));
+    for (const item of freshItems) seenSlugs.add(item.slug);
+    items.push(...freshItems);
+  }
 
   const enriched = new Array<ContentItemInsert>(items.length);
   let nextIndex = 0;
