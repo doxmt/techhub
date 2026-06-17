@@ -118,12 +118,16 @@ export type Database = {
       }
       content_items: {
         Row: {
+          contest_type: string | null
           created_at: string
+          deadline: string | null
           description: string | null
           id: number
           language: string | null
+          likes_count: number
           published_at: string | null
           search_vector: unknown
+          section: string
           slug: string
           source: string | null
           status: string
@@ -132,14 +136,19 @@ export type Database = {
           type: string
           updated_at: string
           url: string
+          view_count: number
         }
         Insert: {
+          contest_type?: string | null
           created_at?: string
+          deadline?: string | null
           description?: string | null
           id?: never
           language?: string | null
+          likes_count?: number
           published_at?: string | null
           search_vector?: unknown
+          section?: string
           slug: string
           source?: string | null
           status?: string
@@ -148,14 +157,19 @@ export type Database = {
           type: string
           updated_at?: string
           url: string
+          view_count?: number
         }
         Update: {
+          contest_type?: string | null
           created_at?: string
+          deadline?: string | null
           description?: string | null
           id?: never
           language?: string | null
+          likes_count?: number
           published_at?: string | null
           search_vector?: unknown
+          section?: string
           slug?: string
           source?: string | null
           status?: string
@@ -164,6 +178,7 @@ export type Database = {
           type?: string
           updated_at?: string
           url?: string
+          view_count?: number
         }
         Relationships: []
       }

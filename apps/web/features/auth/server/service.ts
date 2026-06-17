@@ -38,6 +38,8 @@ function mapBookmarkRowToFeedItem(row: BookmarkRow): FeedItem | null {
     language: ci.language ?? "ko",
     slug: ci.slug,
     publishedAt: ci.published_at ?? "",
+    viewCount: 0,
+    likesCount: 0,
     categories: (ci.content_categories ?? [])
       .map((cc) => cc.categories)
       .filter((c): c is { name: string; slug: string } => c !== null),

@@ -5,14 +5,16 @@ describe("parseFeedParams", () => {
   it("유효한 모든 필드를 정상적으로 파싱한다", () => {
     const result = parseFeedParams({
       q: "react",
-      category: "FE",
+      categories: "fe,be",
+      source: "토스",
       type: "article",
       lang: "ko",
       section: "article",
     });
     expect(result).toEqual({
       q: "react",
-      category: "FE",
+      categories: ["fe", "be"],
+      source: "토스",
       type: "article",
       lang: "ko",
       section: "article",
@@ -22,10 +24,31 @@ describe("parseFeedParams", () => {
   it("빈 객체이면 모든 필드가 undefined이다", () => {
     const result = parseFeedParams({});
     expect(result.q).toBeUndefined();
-    expect(result.category).toBeUndefined();
+    expect(result.categories).toBeUndefined();
+    expect(result.source).toBeUndefined();
     expect(result.type).toBeUndefined();
     expect(result.lang).toBeUndefined();
     expect(result.section).toBeUndefined();
+  });
+
+  it("유효하지 않은 카테고리 슬러그는 필터링된다", () => {
+    const result = parseFeedParams({ categories: "fe,invalid,be" });
+    expect(result.categories).toEqual(["fe", "be"]);
+  });
+
+  it("카테고리는 최대 3개까지만 파싱한다", () => {
+    const result = parseFeedParams({ categories: "fe,be,mobile,cloud" });
+    expect(result.categories).toHaveLength(3);
+  });
+
+  it("유효하지 않은 source는 undefined를 반환한다", () => {
+    const result = parseFeedParams({ source: "없는회사" });
+    expect(result.source).toBeUndefined();
+  });
+
+  it("뉴스 source를 파싱한다", () => {
+    const result = parseFeedParams({ section: "news", source: "dev.to" });
+    expect(result.source).toBe("dev.to");
   });
 
   it("type이 유효하지 않으면 undefined를 반환한다", () => {
@@ -61,5 +84,23 @@ describe("parseFeedParams", () => {
   it("section이 유효하지 않으면 undefined를 반환한다", () => {
     const result = parseFeedParams({ section: "invalid" });
     expect(result.section).toBeUndefined();
+  });
+
+  it("유효한 cstatus를 파싱한다", () => {
+    expect(parseFeedParams({ cstatus: "open" }).cstatus).toBe("open");
+    expect(parseFeedParams({ cstatus: "closed" }).cstatus).toBe("closed");
+  });
+
+  it("cstatus가 유효하지 않으면 undefined를 반환한다", () => {
+    expect(parseFeedParams({ cstatus: "invalid" }).cstatus).toBeUndefined();
+  });
+
+  it("유효한 ctype을 파싱한다", () => {
+    expect(parseFeedParams({ ctype: "hackathon" }).ctype).toBe("hackathon");
+    expect(parseFeedParams({ ctype: "idea-contest" }).ctype).toBe("idea-contest");
+  });
+
+  it("ctype이 유효하지 않으면 undefined를 반환한다", () => {
+    expect(parseFeedParams({ ctype: "invalid" }).ctype).toBeUndefined();
   });
 });

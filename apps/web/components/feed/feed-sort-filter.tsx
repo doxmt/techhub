@@ -13,10 +13,13 @@ type Props = {
   currentPeriod: PeriodValue;
   preservedParams: {
     q?: string;
-    category?: string;
+    categories?: string;
+    source?: string;
     lang?: string;
     section?: string;
     view?: string;
+    cstatus?: string;
+    ctype?: string;
   };
 };
 

@@ -1,33 +1,64 @@
 import {
+  CATEGORY_SLUGS,
   CONTENT_LANGUAGES,
   CONTENT_TYPES,
+  CONTEST_STATUSES,
+  CONTEST_TYPE_SLUGS,
   FEED_SECTIONS,
+  NEWS_SOURCES,
+  SOURCES,
+  type CategorySlug,
   type ContentLanguage,
   type ContentType,
+  type ContestStatus,
+  type ContestTypeSlug,
   type FeedSection,
+  type NewsSource,
+  type Source,
 } from "./index";
+
+type FeedSource = Source | NewsSource;
 
 export function parseFeedParams(params: Record<string, unknown>): {
   q?: string;
-  category?: string;
+  categories?: CategorySlug[];
+  source?: FeedSource;
   type?: ContentType;
   lang?: ContentLanguage;
   section?: FeedSection;
+  cstatus?: ContestStatus;
+  ctype?: ContestTypeSlug;
 } {
   const result: {
     q?: string;
-    category?: string;
+    categories?: CategorySlug[];
+    source?: FeedSource;
     type?: ContentType;
     lang?: ContentLanguage;
     section?: FeedSection;
+    cstatus?: ContestStatus;
+    ctype?: ContestTypeSlug;
   } = {};
 
   if (typeof params.q === "string" && params.q.length > 0) {
     result.q = params.q;
   }
 
-  if (typeof params.category === "string" && params.category.length > 0) {
-    result.category = params.category;
+  // ?categories=fe,be,mobile (쉼표 구분, 최대 3개)
+  if (typeof params.categories === "string" && params.categories.length > 0) {
+    const parsed = params.categories
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => (CATEGORY_SLUGS as readonly string[]).includes(s))
+      .slice(0, 3) as CategorySlug[];
+    if (parsed.length > 0) result.categories = parsed;
+  }
+
+  if (
+    typeof params.source === "string" &&
+    ([...SOURCES, ...NEWS_SOURCES] as readonly string[]).includes(params.source)
+  ) {
+    result.source = params.source as FeedSource;
   }
 
   if (
@@ -49,6 +80,20 @@ export function parseFeedParams(params: Record<string, unknown>): {
     (FEED_SECTIONS as readonly string[]).includes(params.section)
   ) {
     result.section = params.section as FeedSection;
+  }
+
+  if (
+    typeof params.cstatus === "string" &&
+    (CONTEST_STATUSES as readonly string[]).includes(params.cstatus)
+  ) {
+    result.cstatus = params.cstatus as ContestStatus;
+  }
+
+  if (
+    typeof params.ctype === "string" &&
+    (CONTEST_TYPE_SLUGS as readonly string[]).includes(params.ctype)
+  ) {
+    result.ctype = params.ctype as ContestTypeSlug;
   }
 
   return result;

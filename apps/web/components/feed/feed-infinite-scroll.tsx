@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpRight, Bookmark, Eye, ThumbsUp, X } from "lucide-react";
+import { CONTEST_TYPES } from "@techhub/shared";
+import { formatDday } from "@/lib/dday";
 import { ContentCard } from "./content-card";
+import { ThumbnailImage } from "./thumbnail-image";
 import { Skeleton } from "@/components/ui/skeleton";
-import { loadMoreFeed } from "@/features/feed/server/actions";
+import { loadMoreFeed, incrementViewCount } from "@/features/feed/server/actions";
 import { toggleBookmark, toggleLike } from "@/features/auth/server/actions";
 import { AuthDialog } from "@/features/auth/components/auth-dialog";
 import type { FeedItem } from "@/features/feed/server/service";
@@ -12,10 +15,15 @@ import { cn } from "@/lib/utils";
 
 type Filters = {
   q?: string;
-  category?: string;
+  categories?: string[];
+  source?: string;
   type?: string;
   lang?: string;
   section?: string;
+  sort?: string;
+  period?: string;
+  cstatus?: string;
+  ctype?: string;
 };
 
 type Props = {
@@ -52,17 +60,31 @@ export function FeedInfiniteScroll({
       ([entry]) => {
         if (entry.isIntersecting) handleLoadMore();
       },
-      { rootMargin: "200px" },
+      { rootMargin: "200px" }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [cursor, isLoading]);
 
+  function handlePreview(item: FeedItem) {
+    setPreviewItem({ ...item, viewCount: item.viewCount + 1 });
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id ? { ...i, viewCount: i.viewCount + 1 } : i
+      )
+    );
+    void incrementViewCount(Number(item.id));
+  }
+
   async function handleLoadMore() {
     if (!cursor) return;
     setIsLoading(true);
     try {
-      const result = await loadMoreFeed({ cursor, ...filters });
+      const result = await loadMoreFeed({
+        cursor,
+        ...filters,
+        categories: filters.categories?.join(","),
+      });
       setItems((prev) => [...prev, ...result.items]);
       setCursor(result.nextCursor);
     } finally {
@@ -85,7 +107,7 @@ export function FeedInfiniteScroll({
         className={cn(
           view === "grid"
             ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-            : "space-y-3",
+            : "space-y-3"
         )}
       >
         {items.map((item) => (
@@ -93,7 +115,7 @@ export function FeedInfiniteScroll({
             key={item.id}
             item={item}
             variant={view}
-            onPreview={setPreviewItem}
+            onPreview={handlePreview}
             isLoggedIn={isLoggedIn}
           />
         ))}
@@ -103,7 +125,7 @@ export function FeedInfiniteScroll({
           className={cn(
             view === "grid"
               ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-              : "space-y-3",
+              : "space-y-3"
           )}
         >
           <Skeleton className="h-32 w-full" />
@@ -112,12 +134,27 @@ export function FeedInfiniteScroll({
           {view === "grid" && <Skeleton className="h-32 w-full" />}
         </div>
       )}
-      {cursor && <div ref={sentinelRef} className="h-1" data-testid="load-more-sentinel" />}
+      {cursor && (
+        <div
+          ref={sentinelRef}
+          className="h-1"
+          data-testid="load-more-sentinel"
+        />
+      )}
       {previewItem && (
         <ContentPreviewModal
           item={previewItem}
           isLoggedIn={isLoggedIn}
           onClose={() => setPreviewItem(null)}
+          onLikesCountChange={(contentId, delta) => {
+            setItems((prev) =>
+              prev.map((i) =>
+                Number(i.id) === contentId
+                  ? { ...i, likesCount: Math.max(0, i.likesCount + delta) }
+                  : i
+              )
+            );
+          }}
         />
       )}
     </div>
@@ -136,19 +173,34 @@ function ContentPreviewModal({
   item,
   isLoggedIn,
   onClose,
+  onLikesCountChange,
 }: {
   item: FeedItem;
   isLoggedIn: boolean;
   onClose: () => void;
+  onLikesCountChange?: (contentId: number, delta: number) => void;
 }) {
   const [bookmarked, setBookmarked] = useState(item.isBookmarked ?? false);
   const [liked, setLiked] = useState(item.isLiked ?? false);
+  const [likesCount, setLikesCount] = useState(item.likesCount);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [, startTransition] = useTransition();
-  const typeLabel = item.type === "article" ? "아티클" : "영상";
+  const isContest = item.section === "contest";
+  const typeLabel = isContest
+    ? (CONTEST_TYPES.find((c) => c.slug === item.contestType)?.name ?? "공모전")
+    : item.section === "news"
+      ? "뉴스"
+      : item.type === "article"
+        ? "아티클"
+        : "영상";
+  const showTopicBadges = item.section !== "news" && !isContest;
+  const dday = isContest ? formatDday(item.deadline) : null;
 
   function handleBookmarkClick() {
-    if (!isLoggedIn) { setAuthDialogOpen(true); return; }
+    if (!isLoggedIn) {
+      setAuthDialogOpen(true);
+      return;
+    }
     const next = !bookmarked;
     setBookmarked(next);
     startTransition(async () => {
@@ -158,12 +210,22 @@ function ContentPreviewModal({
   }
 
   function handleLikeClick() {
-    if (!isLoggedIn) { setAuthDialogOpen(true); return; }
+    if (!isLoggedIn) {
+      setAuthDialogOpen(true);
+      return;
+    }
     const next = !liked;
+    const delta = next ? 1 : -1;
     setLiked(next);
+    setLikesCount((prev) => Math.max(0, prev + delta));
+    onLikesCountChange?.(Number(item.id), delta);
     startTransition(async () => {
       const result = await toggleLike(Number(item.id));
-      if ("error" in result) setLiked(!next);
+      if ("error" in result) {
+        setLiked(!next);
+        setLikesCount((prev) => Math.max(0, prev - delta));
+        onLikesCountChange?.(Number(item.id), -delta);
+      }
     });
   }
 
@@ -195,15 +257,21 @@ function ContentPreviewModal({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="relative bg-neutral-900">
-          {item.thumbnailUrl ? (
-            <img
-              src={item.thumbnailUrl}
-              alt=""
-              className="aspect-[16/9] max-h-[36vh] w-full object-cover"
-            />
-          ) : (
-            <div className="aspect-[16/9] max-h-[36vh] w-full bg-neutral-800" />
-          )}
+          <div className="aspect-[16/9] max-h-[36vh] w-full">
+            {item.thumbnailUrl ? (
+              <ThumbnailImage
+                src={item.thumbnailUrl}
+                alt=""
+                source={item.source ?? ""}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-neutral-900">
+                <span className="text-sm font-semibold text-neutral-600">
+                  {item.source}
+                </span>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -215,18 +283,34 @@ function ContentPreviewModal({
         </div>
 
         <div className="p-5">
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-md bg-teal-50 px-2 py-1 font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
+          <div className="mb-3 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap text-xs">
+            <span className="shrink-0 rounded-md bg-teal-50 px-2 py-1 font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-300">
               {typeLabel}
             </span>
-            {item.categories[0] && (
-              <span className="rounded-md border border-neutral-200 px-2 py-1 font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200">
-                {item.categories[0].name}
+            {dday && (
+              <span
+                className={cn(
+                  "shrink-0 rounded-md px-2 py-1 font-semibold",
+                  dday.closed
+                    ? "bg-neutral-100 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400"
+                    : "bg-teal-600 text-white dark:bg-teal-500 dark:text-neutral-950",
+                )}
+              >
+                {dday.label}
               </span>
             )}
             {item.source && (
-              <span className="text-neutral-500">{item.source}</span>
+              <span className="shrink-0 text-neutral-500">{item.source}</span>
             )}
+            {showTopicBadges &&
+              item.categories.map((category) => (
+                <span
+                  key={category.slug}
+                  className="shrink-0 rounded-md border border-neutral-200 px-2 py-1 font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
+                >
+                  {category.name}
+                </span>
+              ))}
           </div>
 
           <div className="flex items-start gap-3">
@@ -247,20 +331,14 @@ function ContentPreviewModal({
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-neutral-500">
             <span>{formatDate(item.publishedAt)}</span>
             <span className="inline-flex items-center gap-1">
-              <Eye className="size-3" aria-hidden="true" />
-              0
+              <Eye className="size-3" aria-hidden="true" />{item.viewCount}
             </span>
             <span className="inline-flex items-center gap-1">
-              <ThumbsUp className="size-3" aria-hidden="true" />
-              0
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Bookmark className="size-3" aria-hidden="true" />
-              0
+              <ThumbsUp className="size-3" aria-hidden="true" />{likesCount}
             </span>
           </div>
 
-          {item.tags.length > 0 && (
+          {showTopicBadges && item.tags.length > 0 && (
             <div className="mt-5 flex flex-wrap gap-2">
               {item.tags.map((tag) => (
                 <span
@@ -282,10 +360,13 @@ function ContentPreviewModal({
                   "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition",
                   liked
                     ? "border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800/50 dark:bg-amber-950/20 dark:text-amber-400"
-                    : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700",
+                    : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700"
                 )}
               >
-                <ThumbsUp className={cn("size-4", liked && "fill-current")} aria-hidden="true" />
+                <ThumbsUp
+                  className={cn("size-4", liked && "fill-current")}
+                  aria-hidden="true"
+                />
                 추천
               </button>
               <button
@@ -295,10 +376,13 @@ function ContentPreviewModal({
                   "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition",
                   bookmarked
                     ? "border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-400"
-                    : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700",
+                    : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700"
                 )}
               >
-                <Bookmark className={cn("size-4", bookmarked && "fill-current")} aria-hidden="true" />
+                <Bookmark
+                  className={cn("size-4", bookmarked && "fill-current")}
+                  aria-hidden="true"
+                />
                 북마크
               </button>
             </div>

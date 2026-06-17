@@ -1,0 +1,21 @@
+{
+  "processedUrls": {
+    "https://meetup.nhncloud.com/posts/1": {
+      "source": "NHN Cloud",
+      "title": "NHN Cloud\n        NHN Cloud Meetup!",
+      "categorySlugs": [
+        "cloud",
+        "career"
+      ],
+      "processedAt": "2026-06-08T07:30:36.491Z",
+      "dryRun": true
+    }
+  },
+  "sources": {
+    "NHN Cloud": {
+      "discovered": 1,
+      "processed": 1,
+      "failed": 0
+    }
+  }
+}

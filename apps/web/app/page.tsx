@@ -10,7 +10,13 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
-import { CATEGORIES, parseFeedParams } from "@techhub/shared";
+import {
+  CATEGORIES,
+  CONTEST_TYPES,
+  NEWS_SOURCES,
+  SOURCES,
+  parseFeedParams,
+} from "@techhub/shared";
 import { getFeed } from "../features/feed/server/service";
 import { getSavedFeed } from "../features/auth/server/service";
 import { FeedInfiniteScroll } from "../components/feed/feed-infinite-scroll";
@@ -47,22 +53,48 @@ export default async function HomePage({ searchParams }: Props) {
   const authUser = userData?.user ?? null;
 
   let userProfile: { nickname: string; email: string } | null = null;
-  let isAdmin = false;
   if (authUser) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("nickname, email, role")
+      .select("nickname, email")
       .eq("user_id", authUser.id)
       .single();
     if (profile) {
       userProfile = { nickname: profile.nickname ?? authUser.email ?? "", email: profile.email ?? authUser.email ?? "" };
-      isAdmin = profile.role === "admin";
     } else {
       userProfile = { nickname: authUser.email ?? "", email: authUser.email ?? "" };
     }
   }
 
-  const placeholderSections = ["contest", "recommended"];
+  const placeholderSections = ["recommended"];
+  const activeCategories =
+    currentSection === "article" ? (filters.categories ?? []) : [];
+  const currentContestStatus: "open" | "closed" =
+    currentSection === "contest" && filters.cstatus === "closed"
+      ? "closed"
+      : "open";
+  const currentContestType =
+    currentSection === "contest" ? filters.ctype : undefined;
+  const sourceOptions: readonly string[] =
+    currentSection === "news"
+      ? NEWS_SOURCES
+      : currentSection === "article"
+        ? SOURCES
+        : [];
+  const currentSource =
+    filters.source && sourceOptions.includes(filters.source)
+      ? filters.source
+      : undefined;
+  const feedFilters = {
+    ...filters,
+    categories: activeCategories,
+    source: currentSource,
+    section: currentSection,
+    cstatus: currentSection === "contest" ? currentContestStatus : undefined,
+    ctype: currentContestType,
+    sort: currentSort as import("../features/feed/server/service").FeedSort,
+    period: currentPeriod as import("../features/feed/server/service").FeedPeriod,
+  };
   const { items, nextCursor } =
     placeholderSections.includes(currentSection)
       ? { items: [], nextCursor: null }
@@ -70,7 +102,7 @@ export default async function HomePage({ searchParams }: Props) {
         ? authUser
           ? await getSavedFeed({ userId: authUser.id })
           : { items: [], nextCursor: null }
-        : await getFeed(filters, undefined, authUser?.id);
+        : await getFeed(feedFilters, undefined, authUser?.id);
 
   const sectionTabs = [
     {
@@ -91,7 +123,7 @@ export default async function HomePage({ searchParams }: Props) {
       value: "contest",
       label: "공모전",
       heading: "개발자 공모전",
-      description: "해커톤, 챌린지, 공모전 정보를 준비하고 있습니다.",
+      description: "진행 중인 해커톤과 개발 공모전을 마감일과 함께 모아봅니다.",
       icon: Trophy,
     },
     {
@@ -112,32 +144,37 @@ export default async function HomePage({ searchParams }: Props) {
   const activeSection =
     sectionTabs.find((tab) => tab.value === currentSection) ?? sectionTabs[0];
   const placeholderContent = {
-    contest: {
-      icon: Trophy,
-      title: "공모전 데이터 준비중",
-      description:
-        "해커톤, 챌린지, 개발자 공모전 정보를 별도 섹션으로 모을 예정입니다. 지금은 최신 뉴스와 아티클을 먼저 탐색할 수 있습니다.",
-      previewItems: ["해커톤", "오픈소스 챌린지", "기업 기술 공모전"],
-    },
     recommended: {
       icon: Sparkles,
       title: "추천 섹션 준비중",
       description:
-        "운영자가 선별한 주요 뉴스와 아티클을 따로 모아볼 수 있게 준비하고 있습니다.",
+        "운영자가 선별한 주요 콘텐츠를 따로 모아볼 수 있게 준비하고 있습니다.",
       previewItems: ["이번 주 주요 소식", "깊이 읽을 글", "주목할 도구"],
     },
   } as const;
   const activePlaceholder =
-    currentSection === "contest" || currentSection === "recommended"
+    currentSection === "recommended"
       ? placeholderContent[currentSection]
       : null;
   const EmptyIcon = activePlaceholder?.icon ?? Trophy;
   const showSavedLoginRequired = currentSection === "saved" && !authUser;
+
+  const currentCategories = activeCategories;
+
   function baseParams() {
     const nextParams = new URLSearchParams();
     if (filters.q) nextParams.set("q", filters.q);
-    if (filters.category) nextParams.set("category", filters.category);
+    if (currentSection === "article" && currentCategories.length > 0) {
+      nextParams.set("categories", currentCategories.join(","));
+    }
+    if ((currentSection === "article" || currentSection === "news") && currentSource) {
+      nextParams.set("source", currentSource);
+    }
     if (filters.lang) nextParams.set("lang", filters.lang);
+    if (currentSection === "contest") {
+      if (currentContestStatus === "closed") nextParams.set("cstatus", "closed");
+      if (currentContestType) nextParams.set("ctype", currentContestType);
+    }
     if (currentSection !== "news") nextParams.set("section", currentSection);
     if (currentView === "list") nextParams.set("view", currentView);
     if (currentSort !== "latest") nextParams.set("sort", currentSort);
@@ -153,7 +190,31 @@ export default async function HomePage({ searchParams }: Props) {
   function sectionHref(section: (typeof sectionTabs)[number]["value"]) {
     const nextParams = baseParams();
     nextParams.delete("section");
+    if (section !== "article") {
+      nextParams.delete("categories");
+    }
+    if (section !== "article" && section !== "news") {
+      nextParams.delete("source");
+    }
+    if (section !== "contest") {
+      nextParams.delete("cstatus");
+      nextParams.delete("ctype");
+    }
     if (section !== "news") nextParams.set("section", section);
+    return paramsHref(nextParams);
+  }
+
+  function contestStatusHref(status: "open" | "closed") {
+    const nextParams = baseParams();
+    nextParams.delete("cstatus");
+    if (status === "closed") nextParams.set("cstatus", "closed");
+    return paramsHref(nextParams);
+  }
+
+  function contestTypeHref(slug?: string) {
+    const nextParams = baseParams();
+    nextParams.delete("ctype");
+    if (slug) nextParams.set("ctype", slug);
     return paramsHref(nextParams);
   }
 
@@ -164,25 +225,31 @@ export default async function HomePage({ searchParams }: Props) {
     return paramsHref(nextParams);
   }
 
-  function categoryHref(category?: string) {
+  function sourceHref(source?: string) {
     const nextParams = baseParams();
-    nextParams.delete("category");
-    if (category) nextParams.set("category", category);
+    nextParams.delete("source");
+    if (source) nextParams.set("source", source);
     return paramsHref(nextParams);
   }
 
-  const categoryTabs = [
-    { label: "전체", slug: undefined },
-    ...CATEGORIES.map((category) => ({
-      label:
-        category.slug === "fe"
-          ? "FE"
-          : category.slug === "be"
-            ? "BE"
-            : category.name,
-      slug: category.slug,
-    })),
-  ];
+  function toggleCategoryHref(slug: string) {
+    const nextParams = baseParams();
+    const cats = currentCategories as string[];
+    if (cats.includes(slug)) {
+      const updated = cats.filter((c) => c !== slug);
+      if (updated.length > 0) nextParams.set("categories", updated.join(","));
+      else nextParams.delete("categories");
+    } else if (cats.length < 3) {
+      nextParams.set("categories", [...cats, slug].join(","));
+    }
+    return paramsHref(nextParams);
+  }
+
+  function clearCategoriesHref() {
+    const nextParams = baseParams();
+    nextParams.delete("categories");
+    return paramsHref(nextParams);
+  }
 
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950 dark:bg-neutral-900 dark:text-neutral-50">
@@ -200,15 +267,6 @@ export default async function HomePage({ searchParams }: Props) {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <HeaderUserMenu user={userProfile} />
-            {isAdmin && (
-              <a
-                className="inline-flex items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-100 dark:border-neutral-600 dark:bg-neutral-700/70 dark:text-neutral-100 dark:hover:bg-neutral-700"
-                href="/admin"
-              >
-                Admin
-                <ArrowUpRight className="size-4" aria-hidden="true" />
-              </a>
-            )}
           </div>
         </div>
       </header>
@@ -245,8 +303,17 @@ export default async function HomePage({ searchParams }: Props) {
                   {currentPeriod !== "all" && (
                     <input type="hidden" name="period" value={currentPeriod} />
                   )}
-                  {filters.category && (
-                    <input type="hidden" name="category" value={filters.category} />
+                  {currentSection === "article" && currentCategories.length > 0 && (
+                    <input type="hidden" name="categories" value={currentCategories.join(",")} />
+                  )}
+                  {currentSource && (
+                    <input type="hidden" name="source" value={currentSource} />
+                  )}
+                  {currentSection === "contest" && currentContestStatus === "closed" && (
+                    <input type="hidden" name="cstatus" value="closed" />
+                  )}
+                  {currentContestType && (
+                    <input type="hidden" name="ctype" value={currentContestType} />
                   )}
                   {filters.lang && (
                     <input type="hidden" name="lang" value={filters.lang} />
@@ -293,10 +360,19 @@ export default async function HomePage({ searchParams }: Props) {
                     currentPeriod={currentPeriod}
                     preservedParams={{
                       q: filters.q,
-                      category: filters.category,
+                      categories:
+                        currentSection === "article" && currentCategories.length > 0
+                          ? currentCategories.join(",")
+                          : undefined,
+                      source: currentSource,
                       lang: filters.lang,
                       section: currentSection !== "news" ? currentSection : undefined,
                       view: currentView === "list" ? currentView : undefined,
+                      cstatus:
+                        currentSection === "contest" && currentContestStatus === "closed"
+                          ? currentContestStatus
+                          : undefined,
+                      ctype: currentContestType,
                     }}
                   />
                   <div
@@ -332,33 +408,161 @@ export default async function HomePage({ searchParams }: Props) {
                   </div>
                 </div>
               </div>
-              {currentSection === "article" && (
-                <nav
-                  aria-label="아티클 주제"
-                  className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
-                >
-                  {categoryTabs.map((category) => {
-                    const isActive =
-                      category.slug === undefined
-                        ? filters.category === undefined
-                        : filters.category === category.slug;
-                    return (
+
+              {(currentSection === "article" || currentSection === "news") && (
+                <>
+                  <nav
+                    aria-label="출처"
+                    className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                  >
+                    <a
+                      href={sourceHref(undefined)}
+                      aria-current={!currentSource ? "page" : undefined}
+                      className={cn(
+                        "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                        !currentSource
+                          ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                          : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                      )}
+                    >
+                      전체
+                    </a>
+                    {sourceOptions.map((source) => {
+                      const isActive = currentSource === source;
+                      return (
+                        <a
+                          key={source}
+                          href={sourceHref(isActive ? undefined : source)}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                            isActive
+                              ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                              : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                          )}
+                        >
+                          {source}
+                        </a>
+                      );
+                    })}
+                  </nav>
+
+                  {currentSection === "article" && (
+                    <nav
+                      aria-label="주제"
+                      className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                    >
                       <a
-                        key={category.slug ?? "all"}
-                        href={categoryHref(category.slug)}
-                        aria-current={isActive ? "page" : undefined}
+                        href={clearCategoriesHref()}
+                        aria-current={currentCategories.length === 0 ? "page" : undefined}
                         className={cn(
                           "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
-                          isActive
+                          currentCategories.length === 0
                             ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
                             : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
                         )}
                       >
-                        {category.label}
+                        전체
                       </a>
-                    );
-                  })}
-                </nav>
+                      {CATEGORIES.map((category) => {
+                        const isActive = currentCategories.includes(category.slug);
+                        const isDisabled = !isActive && currentCategories.length >= 3;
+                        return (
+                          <a
+                            key={category.slug}
+                            href={isDisabled ? "#" : toggleCategoryHref(category.slug)}
+                            aria-current={isActive ? "page" : undefined}
+                            aria-disabled={isDisabled}
+                            className={cn(
+                              "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                              isActive
+                                ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                                : isDisabled
+                                  ? "cursor-not-allowed border-neutral-200 bg-white text-neutral-400 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-600"
+                                  : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                            )}
+                          >
+                            {category.name}
+                          </a>
+                        );
+                      })}
+                      {currentCategories.length > 0 && (
+                        <span className="inline-flex h-8 shrink-0 items-center px-1 text-xs text-neutral-400">
+                          {currentCategories.length}/3
+                        </span>
+                      )}
+                    </nav>
+                  )}
+                </>
+              )}
+
+              {currentSection === "contest" && (
+                <>
+                  <nav
+                    aria-label="진행 상태"
+                    className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                  >
+                    {(
+                      [
+                        { value: "open", label: "진행중" },
+                        { value: "closed", label: "종료됨" },
+                      ] as const
+                    ).map((status) => {
+                      const isActive = currentContestStatus === status.value;
+                      return (
+                        <a
+                          key={status.value}
+                          href={contestStatusHref(status.value)}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                            isActive
+                              ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                              : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                          )}
+                        >
+                          {status.label}
+                        </a>
+                      );
+                    })}
+                  </nav>
+
+                  <nav
+                    aria-label="유형"
+                    className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+                  >
+                    <a
+                      href={contestTypeHref(undefined)}
+                      aria-current={!currentContestType ? "page" : undefined}
+                      className={cn(
+                        "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                        !currentContestType
+                          ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                          : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                      )}
+                    >
+                      전체
+                    </a>
+                    {CONTEST_TYPES.map((contestType) => {
+                      const isActive = currentContestType === contestType.slug;
+                      return (
+                        <a
+                          key={contestType.slug}
+                          href={contestTypeHref(isActive ? undefined : contestType.slug)}
+                          aria-current={isActive ? "page" : undefined}
+                          className={cn(
+                            "inline-flex h-8 shrink-0 items-center rounded-md border px-3 text-sm font-medium transition",
+                            isActive
+                              ? "border-teal-600 bg-teal-50 text-teal-700 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                              : "border-neutral-200 bg-white text-neutral-600 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700 dark:border-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-300 dark:hover:border-teal-900 dark:hover:bg-teal-950/30 dark:hover:text-teal-300",
+                          )}
+                        >
+                          {contestType.name}
+                        </a>
+                      );
+                    })}
+                  </nav>
+                </>
               )}
             </div>
           </div>
@@ -383,10 +587,10 @@ export default async function HomePage({ searchParams }: Props) {
               </div>
               <div className="mt-5">
                 <a
-                  href={sectionHref("news")}
+                  href={sectionHref("article")}
                   className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 >
-                  최신 뉴스 보기
+                  아티클 보기
                   <ArrowUpRight className="size-4" aria-hidden="true" />
                 </a>
               </div>
@@ -402,10 +606,10 @@ export default async function HomePage({ searchParams }: Props) {
               </p>
               <div className="mt-5">
                 <a
-                  href={sectionHref("news")}
+                  href={sectionHref("article")}
                   className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 >
-                  최신 뉴스 보기
+                  아티클 보기
                   <ArrowUpRight className="size-4" aria-hidden="true" />
                 </a>
               </div>
@@ -414,7 +618,7 @@ export default async function HomePage({ searchParams }: Props) {
             <FeedInfiniteScroll
               initialItems={items}
               nextCursor={nextCursor}
-              filters={filters}
+              filters={feedFilters}
               view={currentView}
               isLoggedIn={!!authUser}
             />

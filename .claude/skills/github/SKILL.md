@@ -8,9 +8,9 @@ disable-model-invocation: true
 
 ## 작업 흐름
 
-1. `git pull origin develop` — 최신 develop 동기화
+1. `git checkout develop && git pull origin develop` — develop으로 이동 후 최신화
 2. 이슈 생성 → 번호 확인
-3. 이슈 번호로 브랜치 생성
+3. 이슈 번호로 브랜치 생성 (`develop` 기점)
 4. 작업 & 커밋
 5. PR 생성 (`develop` 기준)
 6. code-reviewer 호출 → 리뷰 결과 확인
