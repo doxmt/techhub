@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { runOgBackfill } from "../../../../features/ingestion/server/backfill-og";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");

@@ -5,15 +5,11 @@
   },
   "crons": [
     {
-      "path": "/api/cron/ingest/news",
+      "path": "/api/cron/ingest",
       "schedule": "0 1 * * *"
     },
     {
-      "path": "/api/cron/ingest/articles",
-      "schedule": "30 1 * * *"
-    },
-    {
-      "path": "/api/cron/ingest/contests",
+      "path": "/api/cron/backfill-og",
       "schedule": "0 2 * * *"
     }
   ]
