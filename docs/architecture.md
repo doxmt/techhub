@@ -11,7 +11,7 @@
 - 검색: Postgres Full Text Search
 - 수집: RSS/API `fetch`, 서버 메타데이터 파싱, Vercel Cron
 - 환경변수 검증: `@t3-oss/env-nextjs`
-- 관측성: Sentry, Vercel Web Analytics
+- 관측성: Vercel Web Analytics (Sentry는 미도입)
 - 테스트: Vitest, Playwright
 - 배포: Vercel
 - CI/CD: GitHub Actions 템플릿을 pnpm 기준으로 사용
@@ -23,11 +23,11 @@
 ├── apps
 │   └── web
 │       ├── app
-│       │   ├── [slug-id]/        # 콘텐츠 상세 페이지
-│       │   ├── admin/            # 관리자 전용 (role='admin')
+│       │   ├── api/cron/         # ingest, backfill-og (Vercel Cron 진입점)
+│       │   ├── bookmarks/        # 저장한 콘텐츠 섹션 탭 (홈에서 사용)
 │       │   ├── profile/          # 마이페이지 (로그인 필수)
 │       │   ├── layout.tsx
-│       │   └── page.tsx          # 공개 피드 홈 (출처/카테고리 필터 포함)
+│       │   └── page.tsx          # 공개 피드 홈 (섹션/출처/카테고리 필터 포함)
 │       ├── components
 │       │   ├── feed/             # FeedInfiniteScroll, ContentCard, ThumbnailImage 등
 │       │   └── ui/               # shadcn/ui 컴포넌트
@@ -113,6 +113,8 @@
 - 수집 실행 결과는 `ingestion_runs`에 기록한다.
 - 중복 콘텐츠는 `content_items.url` 기준으로 방지한다.
 - 중복 URL 때문에 수집 전체가 실패하지 않도록 upsert 또는 conflict ignore 방식을 사용한다.
+- `content_items.slug`에도 UNIQUE 제약이 있는데 upsert의 `onConflict`는 컬럼 하나만 지정할 수 있다. slug 충돌은 `ON CONFLICT (url)`이 잡지 못하고 INSERT 문 전체를 abort시키므로, insert 전에 기존 slug를 조회해 insert 대상과 갱신 대상을 나눈다.
+- 그래도 배치 insert가 실패하면 행 단위로 재시도해 문제 행 하나가 소스 전체를 죽이지 않게 한다.
 - RSS/Atom 수집과 API 기반 수집은 source type별 adapter로 분리한다.
 - MVP에서는 AI 요약, AI 추천, AI 태그 생성, 사용자 제출 기능을 넣지 않는다.
 
@@ -206,7 +208,8 @@ GitHub OAuth 관리자 로그인
 - DB의 `content_items.section` 값으로 `news`/`article`/`contest` 피드를 구분한다.
 - 기존 콘텐츠와 기존 RSS 소스는 `section='article'`이며, 뉴스 RSS 소스는 `section='news'`로 저장한다.
 - `contest`는 위비티 게임/소프트웨어(cidx=21)·웹/모바일/IT(cidx=20) 목록을 스크래핑해 수집하며, 제목 키워드로 개발 관련 공모전만 남긴다. 항목 URL은 위비티 `ix` 기준으로 정규화해 카테고리 간 중복을 제거한다.
-- 공모전은 위비티 상세(gbn=viewok) 페이지를 항목별로 fetch해 원문 홈페이지를 `url`로, 포스터(og:image)를 `thumbnail`로, 접수기간 종료일을 `deadline`으로 사용한다. 홈페이지가 없으면 위비티 상세 URL로 폴백한다. 중복 제거 키는 slug(`wevity-{ix}`)가 아닌 `url`이므로 상세 보강 실패 시에도 동작한다.
+- 공모전은 위비티 상세(gbn=viewok) 페이지를 항목별로 fetch해 원문 홈페이지를 `url`로, 포스터(og:image)를 `thumbnail`로, 접수기간 종료일을 `deadline`으로 사용한다. 홈페이지가 없으면 위비티 상세 URL로 폴백한다.
+- 공모전의 안정적인 식별자는 `url`이 아니라 slug(`wevity-{ix}`)다. 홈페이지 링크는 등록 후에 붙거나 바뀌므로 `url`은 유동적이다. 따라서 이미 있는 공모전은 slug로 찾아 `url`/`thumbnail`/`deadline`을 update하고, 신규만 insert한다.
 - 공모전 진행 상태(진행중/종료)는 별도 컬럼 없이 `deadline` 기준으로 파생한다 (`deadline` 없음 = 상시 → 진행중).
 - 공모전 유형은 `contest_type`(hackathon/dev-contest/idea-contest/data-competition)으로 분류하며 주제 카테고리는 연결하지 않는다.
 - 기존 `type`은 콘텐츠 표시 방식이나 원본 미디어를 나타내는 보조 필드로 유지한다.
@@ -237,10 +240,8 @@ GitHub OAuth 관리자 로그인
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `ADMIN_EMAIL_ALLOWLIST`
 - `CRON_SECRET`
 - `NEXT_PUBLIC_SITE_URL`
-- `SENTRY_DSN`
 - `VERCEL_TOKEN`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
