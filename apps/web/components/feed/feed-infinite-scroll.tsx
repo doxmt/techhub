@@ -20,6 +20,7 @@ type Filters = {
   type?: string;
   lang?: string;
   section?: string;
+  saved?: string;
   sort?: string;
   period?: string;
   cstatus?: string;
