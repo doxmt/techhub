@@ -61,15 +61,25 @@ function makeAdminClientMock(options: {
   insertResults?: Array<{ data: unknown; error: unknown; count?: number | null }>;
   runInsertResult?: { data: unknown; error: unknown };
   runUpdateResult?: { data: unknown; error: unknown };
+  /** slug UNIQUE 사전 조회에서 이미 존재한다고 응답할 행들 */
+  existingRows?: Array<{ id: number; slug: string; url: string }>;
+  /** 행 단위 재시도 시 각 호출의 결과 */
+  rowRetryResults?: Array<{ data: unknown; error: unknown; count?: number | null }>;
+  /** content_items.update(...).eq(...) 호출 기록 */
+  updateCalls?: Array<{ patch: unknown; id: unknown }>;
 }) {
   const {
     sources,
     insertResults = [],
     runInsertResult = { data: [{ id: "run-1" }], error: null },
     runUpdateResult = { data: null, error: null },
+    existingRows = [],
+    rowRetryResults = [],
+    updateCalls = [],
   } = options;
 
   let insertCallIndex = 0;
+  let rowRetryIndex = 0;
 
   const fromMock = vi.fn().mockImplementation((table: string) => {
     if (table === "sources") {
@@ -97,12 +107,33 @@ function makeAdminClientMock(options: {
       };
     }
     if (table === "content_items") {
-      const result = insertResults[insertCallIndex] ?? { data: null, error: null, count: 0 };
-      insertCallIndex++;
-      const withSelect = { select: vi.fn().mockResolvedValue(result) };
+      // 배치 upsert / 행 단위 재시도 여부는 payload 배열 길이로 구분한다
+      const upsert = vi.fn((payload: unknown) => {
+        const isRowRetry = Array.isArray(payload) && payload.length === 1 && rowRetryResults.length > 0;
+        const result = isRowRetry
+          ? (rowRetryResults[rowRetryIndex++] ?? { data: null, error: null, count: 0 })
+          : (insertResults[insertCallIndex++] ?? { data: null, error: null, count: 0 });
+        return { select: vi.fn().mockResolvedValue(result) };
+      });
+
       return {
-        insert: vi.fn().mockReturnValue(withSelect),
-        upsert: vi.fn().mockReturnValue(withSelect),
+        // slug 사전 조회: select("id, slug, url").in("slug", [...])
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: existingRows, error: null }),
+        }),
+        // from() 호출 시점이 아니라 insert() 호출 시점에 결과를 소비해야 한다
+        insert: vi.fn(() => ({
+          select: vi.fn().mockResolvedValue(
+            insertResults[insertCallIndex++] ?? { data: null, error: null, count: 0 },
+          ),
+        })),
+        upsert,
+        update: vi.fn((patch: unknown) => ({
+          eq: vi.fn((_column: string, id: unknown) => {
+            updateCalls.push({ patch, id });
+            return Promise.resolve({ data: null, error: null });
+          }),
+        })),
       };
     }
     return {
@@ -530,5 +561,156 @@ describe("runIngestion — 소스당 30건 상한", () => {
 
     // processed는 최대 30이어야 한다
     expect(result.processed).toBeLessThanOrEqual(30);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// slug UNIQUE 충돌 방어
+//
+// content_items.slug에 UNIQUE 제약이 있는데 upsert는 onConflict를 'url' 하나만
+// 지정할 수 있다. slug가 충돌하면 ON CONFLICT (url) DO NOTHING이 잡지 못하고
+// INSERT 문 전체가 abort되어 해당 소스의 신규 콘텐츠가 통째로 유실된다.
+// ---------------------------------------------------------------------------
+
+const CONTEST_SOURCE = [
+  {
+    id: "src-contest",
+    name: "위비티",
+    feed_url: "https://www.wevity.com/?c=find&s=1&gub=1&cidx=21",
+    feed_type: "wevity",
+    default_language: "ko",
+    section: "contest",
+    is_active: true,
+  },
+];
+
+/** 위비티 목록 HTML 한 항목 */
+function wevityListItem(ix: number, title: string, dday = 10) {
+  return `<div class="tit"><a href="?c=find&amp;s=1&amp;gub=1&amp;cidx=21&amp;gbn=view&amp;ix=${ix}">${title}</a></div>
+    <div class="organ">주최기관</div><div class="day">D-${dday}</div>`;
+}
+
+function stubWevityFetch(listHtml: string, detailHtml = "") {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockImplementation((url: string) => {
+      const isDetail = String(url).includes("gbn=viewok");
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: async () => (isDetail ? detailHtml : listHtml),
+      });
+    }),
+  );
+}
+
+describe("runIngestion — slug UNIQUE 충돌 방어", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("이미 존재하는 slug는 insert 대상에서 제외한다", async () => {
+    stubWevityFetch(wevityListItem(1001, "제1회 해커톤 개발 공모전"));
+
+    const insertResults = [{ data: [], error: null, count: 0 }];
+    (createAdminClient as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminClientMock({
+        sources: CONTEST_SOURCE,
+        insertResults,
+        existingRows: [
+          { id: 7, slug: "wevity-1001", url: "https://www.wevity.com/?c=find&s=1&gub=1&cidx=21&gbn=view&ix=1001" },
+        ],
+      }),
+    );
+
+    const result = await runIngestion();
+
+    // 배치가 통째로 실패하지 않고 정상 종료해야 한다
+    expect(result.status).toBe("success");
+    expect(result.failed).toBe(0);
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+  });
+
+  it("기존 공모전의 deadline과 홈페이지 url을 갱신한다", async () => {
+    // 상세에 홈페이지가 새로 붙고 접수기간이 연장된 상황
+    stubWevityFetch(
+      wevityListItem(1002, "제2회 소프트웨어 개발 공모전"),
+      `<meta property="og:image" content="https://www.wevity.com/upload/contest/poster.jpg">
+       <span class="tit">홈페이지</span><a href="https://contest.example.com/">바로가기</a>
+       <span>접수기간</span> 2026-07-01 ~ 2026-12-31`,
+    );
+
+    const updateCalls: Array<{ patch: unknown; id: unknown }> = [];
+    (createAdminClient as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminClientMock({
+        sources: CONTEST_SOURCE,
+        insertResults: [{ data: [], error: null, count: 0 }],
+        existingRows: [
+          { id: 9, slug: "wevity-1002", url: "https://www.wevity.com/?c=find&s=1&gub=1&cidx=21&gbn=view&ix=1002" },
+        ],
+        updateCalls,
+      }),
+    );
+
+    await runIngestion();
+
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0]!.id).toBe(9);
+    expect(updateCalls[0]!.patch).toMatchObject({
+      url: "https://contest.example.com/",
+      thumbnail: "https://www.wevity.com/upload/contest/poster.jpg",
+      // 2026-12-31 KST 23:59:59
+      deadline: "2026-12-31T14:59:59.000Z",
+    });
+  });
+
+  it("배치 insert가 실패하면 행 단위로 재시도해 나머지를 살린다", async () => {
+    stubWevityFetch(
+      wevityListItem(2001, "제1회 개발 해커톤") + wevityListItem(2002, "제2회 개발 해커톤"),
+    );
+
+    (createAdminClient as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminClientMock({
+        sources: CONTEST_SOURCE,
+        // 배치 insert는 slug 충돌로 전체 실패
+        insertResults: [
+          { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" }, count: null },
+        ],
+        // 행 단위 재시도: 1건 성공, 1건 실패
+        rowRetryResults: [
+          { data: [{ id: 11, url: "https://www.wevity.com/?c=find&s=1&gub=1&cidx=21&gbn=view&ix=2001" }], error: null, count: 1 },
+          { data: null, error: { code: "23505", message: "duplicate key" }, count: null },
+        ],
+      }),
+    );
+
+    const result = await runIngestion();
+
+    // 배치가 죽어도 살릴 수 있는 행은 살린다
+    expect(result.created).toBe(1);
+    expect(result.status).toBe("success");
+  });
+
+  it("같은 배치 안의 중복 slug는 한 번만 insert한다", async () => {
+    // 두 위비티 소스가 같은 ix를 공유하는 상황을 한 목록 안에서 재현
+    stubWevityFetch(
+      wevityListItem(3001, "제3회 개발 공모전") + wevityListItem(3001, "제3회 개발 공모전"),
+    );
+
+    (createAdminClient as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminClientMock({
+        sources: CONTEST_SOURCE,
+        insertResults: [
+          { data: [{ id: 21, url: "https://www.wevity.com/?c=find&s=1&gub=1&cidx=21&gbn=view&ix=3001" }], error: null, count: 1 },
+        ],
+      }),
+    );
+
+    const result = await runIngestion();
+
+    expect(result.processed).toBe(1);
+    expect(result.created).toBe(1);
+    expect(result.failed).toBe(0);
   });
 });

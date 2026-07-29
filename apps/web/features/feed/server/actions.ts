@@ -17,6 +17,8 @@ import {
   SOURCES,
 } from "@techhub/shared";
 import { createClient } from "../../../lib/supabase/server";
+import { getSavedFeed, SAVED_SECTIONS } from "../../auth/server/service";
+import type { SavedSection } from "../../auth/server/service";
 
 export async function loadMoreFeed(input: {
   cursor: string;
@@ -26,6 +28,7 @@ export async function loadMoreFeed(input: {
   type?: string;
   lang?: string;
   section?: string;
+  saved?: string;  // section='saved'일 때의 하위 탭
   sort?: string;
   period?: string;
   cstatus?: string;
@@ -42,8 +45,23 @@ export async function loadMoreFeed(input: {
       ? (input.section as FeedSection)
       : undefined;
 
-  if (section === "recommended" || section === "saved") {
+  if (section === "recommended") {
     return { items: [], nextCursor: null };
+  }
+
+  if (section === "saved") {
+    const supabase = await createClient();
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    if (!userId) return { items: [], nextCursor: null };
+
+    const saved =
+      input.saved !== undefined &&
+      (SAVED_SECTIONS as readonly string[]).includes(input.saved)
+        ? (input.saved as SavedSection)
+        : "all";
+
+    return getSavedFeed({ userId, cursor: input.cursor, section: saved });
   }
 
   const cstatus =
