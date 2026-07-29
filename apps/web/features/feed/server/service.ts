@@ -1,6 +1,5 @@
 import { createClient } from "../../../lib/supabase/server";
 import { encodeCursor, decodeCursor } from "../../../lib/cursor";
-import { parseSlugId } from "../../../lib/slug";
 import type {
   ContentType,
   ContestStatus,
@@ -270,26 +269,4 @@ export async function getFeed(
   }
 
   return { items, nextCursor };
-}
-
-export async function getContentBySlugId(
-  slugId: string,
-): Promise<FeedItem | null> {
-  const parsed = parseSlugId(slugId);
-  if (!parsed) return null;
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("content_items")
-    .select(
-      `id, title, description, thumbnail, source, type, section, language, slug, status, published_at,
-      url, view_count, likes_count, deadline, contest_type,
-      content_categories(categories(name, slug)),
-      content_tags(tags(name))`,
-    )
-    .eq("id", parsed.id)
-    .single();
-
-  if (!data || data.status !== "published") return null;
-  return mapToFeedItem(data as unknown as ContentRow);
 }
