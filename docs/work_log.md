@@ -109,3 +109,14 @@
 - daily ingest route를 뉴스/아티클로 분리하고 Vercel maxDuration 60초 지정, 소스 동시성 제한과 소스당 10건 상한 적용
 - 원격 DB에서 `section='article'`로 잘못 들어간 dev.to 24건 삭제
 - 뉴스 소스 보정 migration 추가: dev.to article 오등록분 삭제, 다른 뉴스 소스 article 오등록분 `news` 보정, stale running run failed 처리
+
+## 2026-07-29
+- 프로젝트 전반 분석: 테스트 실패 1건, 문서-구현 불일치 5건, dead code 2건 식별
+- 공모전 수집 유실 원인 규명 — `content_items.slug` UNIQUE와 upsert `onConflict: "url"` 불일치로 slug 충돌 시 INSERT 배치 전체가 abort
+- 라이브 위비티 사이트로 파서 검증 (3페이지 × 2소스 HTTP 200, 목록/상세 파싱 정상) → 사이트 HTML 변경이 아님을 확인
+- 위비티 두 소스(cidx=20/21)가 같은 ix를 공유하는 항목 실측 2건 확인
+- 공모전 수집 수정: 기존 slug 사전 조회로 insert/update 분리, 배치 실패 시 행 단위 재시도, 배치 내 slug/url 중복 제거, 기존 공모전의 url/thumbnail/deadline 갱신
+- 북마크 저장 목록 200개 하드캡 제거: 커서 기반 페이지네이션 복귀, 섹션 탭을 URL query로 전환, `getSavedCounts` 추가, `BookmarkTabs`를 server component로 전환
+- 상세 페이지 미구현 확정 → `getContentBySlugId`, `lib/slug.ts` 및 관련 테스트 제거
+- 문서 동기화: CLAUDE.md, architecture.md, DESIGN.md, roadmap.md, current_state.md
+- 이슈 #44 생성, PR #45 생성 (4개 커밋으로 분리)
