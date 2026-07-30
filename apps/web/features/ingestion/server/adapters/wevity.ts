@@ -30,7 +30,7 @@ function cleanText(html: string): string {
 }
 
 // 영상/디자인/마케팅류 공모전 제외 키워드
-const NON_DEV_PATTERN =
+export const NON_DEV_PATTERN =
   /영상|UCC|사진|디자인|웹툰|일러스트|포스터|광고|마케팅|수기|에세이|논문|작문|문학|시나리오|캐릭터|굿즈|네이밍|슬로건|미술|음악|댄스/i;
 
 // 개발 관련 공모전 포함 키워드
@@ -187,7 +187,16 @@ const FETCH_HEADERS = {
 };
 const DETAIL_CONCURRENCY = 5;
 // 목록은 등록순이라 여러 페이지를 가져오면 예전에 등록된 접수중 공모전까지 수집된다
-const MAX_LIST_PAGES = 3;
+const DEFAULT_MAX_LIST_PAGES = 3;
+
+/**
+ * 조회할 목록 페이지 수.
+ * 과거 등록분 백필 시 WEVITY_MAX_LIST_PAGES로 늘려 실행한다.
+ */
+function maxListPages(): number {
+  const parsed = Number(process.env.WEVITY_MAX_LIST_PAGES);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_LIST_PAGES;
+}
 
 /**
  * 상세(gbn=viewok) 정보로 항목을 보강한다.
@@ -226,7 +235,8 @@ export async function fetchWevity(
   const items: ContentItemInsert[] = [];
   const seenSlugs = new Set<string>();
 
-  for (let page = 1; page <= MAX_LIST_PAGES; page += 1) {
+  const totalPages = maxListPages();
+  for (let page = 1; page <= totalPages; page += 1) {
     const response = await fetch(`${source.feed_url}&gp=${page}`, {
       signal,
       headers: FETCH_HEADERS,
