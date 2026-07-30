@@ -1,0 +1,34 @@
+name: Probe wevity reachability
+
+# 위비티가 GitHub Actions 러너 IP를 차단하는지 확인하는 임시 워크플로 (issue #49)
+on:
+  push:
+    branches:
+      - fix/49-위비티403-로컬수집
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check wevity list pages
+        run: |
+          for cidx in 21 20; do
+            url="https://www.wevity.com/?c=find&s=1&gub=1&cidx=$cidx"
+            code=$(curl -s -o /tmp/out.html -w "%{http_code}" \
+              -A "Mozilla/5.0 (compatible; TechHubBot/1.0)" "$url")
+            size=$(wc -c < /tmp/out.html)
+            echo "cidx=$cidx -> HTTP $code, ${size} bytes"
+            if [ "$code" = "200" ]; then
+              echo "  목록 항목 수: $(grep -o '<div class=\"tit\">' /tmp/out.html | wc -l)"
+            fi
+          done
+
+      - name: Check wevity detail page
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -A "Mozilla/5.0 (compatible; TechHubBot/1.0)" \
+            "https://www.wevity.com/?c=find&s=1&gub=1&cidx=21&gbn=viewok&ix=107956")
+          echo "detail -> HTTP $code"
+
+      - name: Runner egress IP
+        run: curl -s https://api.ipify.org && echo
