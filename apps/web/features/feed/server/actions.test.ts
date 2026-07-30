@@ -49,6 +49,39 @@ describe("loadMoreFeed", () => {
     );
   });
 
+  describe("출처 필터", () => {
+    it("아티클 출처를 전달한다", async () => {
+      await loadMoreFeed({ cursor: "c1", section: "article", source: "토스" });
+
+      expect(getFeed).toHaveBeenCalledWith(
+        expect.objectContaining({ source: "토스" }),
+        "c1",
+        undefined,
+      );
+    });
+
+    it("뉴스 출처도 전달한다", async () => {
+      // 최신뉴스에서 출처를 고른 뒤 스크롤하면 다음 페이지에서도 필터가 유지돼야 한다
+      await loadMoreFeed({ cursor: "c1", section: "news", source: "GeekNews" });
+
+      expect(getFeed).toHaveBeenCalledWith(
+        expect.objectContaining({ source: "GeekNews" }),
+        "c1",
+        undefined,
+      );
+    });
+
+    it("알 수 없는 출처는 무시한다", async () => {
+      await loadMoreFeed({ cursor: "c1", section: "news", source: "없는출처" });
+
+      expect(getFeed).toHaveBeenCalledWith(
+        expect.objectContaining({ source: undefined }),
+        "c1",
+        undefined,
+      );
+    });
+  });
+
   describe("saved 섹션", () => {
     function mockUser(user: { id: string } | null) {
       (createClient as ReturnType<typeof vi.fn>).mockResolvedValue({

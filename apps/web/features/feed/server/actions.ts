@@ -15,6 +15,7 @@ import {
   FEED_SECTIONS,
   CATEGORY_SLUGS,
   SOURCES,
+  NEWS_SOURCES,
 } from "@techhub/shared";
 import { createClient } from "../../../lib/supabase/server";
 import { getSavedFeed, SAVED_SECTIONS } from "../../auth/server/service";
@@ -84,9 +85,11 @@ export async function loadMoreFeed(input: {
           .slice(0, 3)
       : undefined;
 
+  // 뉴스 출처는 NEWS_SOURCES에 따로 있다. SOURCES만 검사하면 최신뉴스 섹션에서
+  // 다음 페이지부터 출처 필터가 풀려 다른 출처가 섞인다.
   const source =
     typeof input.source === "string" &&
-    (SOURCES as readonly string[]).includes(input.source)
+    ([...SOURCES, ...NEWS_SOURCES] as readonly string[]).includes(input.source)
       ? input.source
       : undefined;
 
