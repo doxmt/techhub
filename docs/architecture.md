@@ -197,7 +197,7 @@ GitHub OAuth 관리자 로그인
 - `content_tags`: 콘텐츠와 태그 연결
 - `bookmarks`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
 - `likes`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
-- `sources`: RSS/API 소스 이름, URL, 소스 타입(`rss`/`atom`/`wevity`), 기본 언어, 기본 카테고리, 섹션, 활성 상태, 마지막 수집 시각 (아티클 10개 + 뉴스 5개 + 공모전 2개)
+- `sources`: RSS/API 소스 이름, URL, 소스 타입(`rss`/`atom`/`wevity`/`contestkorea`), 기본 언어, 기본 카테고리, 섹션, 활성 상태, 마지막 수집 시각 (아티클 10개 + 뉴스 5개 + 공모전 1개, 위비티 2개는 비활성)
 - `ingestion_runs`: 수집 시작/종료 시각, 상태, 처리/생성/스킵/실패 건수, 오류 메시지
 - `profiles`: Supabase 사용자 id, 이메일, nickname(최대 20자), role('viewer'|'admin'), created_at
 
@@ -207,9 +207,12 @@ GitHub OAuth 관리자 로그인
 - UI-first 단계의 섹션은 `news`, `article`, `contest`를 사용한다.
 - DB의 `content_items.section` 값으로 `news`/`article`/`contest` 피드를 구분한다.
 - 기존 콘텐츠와 기존 RSS 소스는 `section='article'`이며, 뉴스 RSS 소스는 `section='news'`로 저장한다.
-- `contest`는 위비티 게임/소프트웨어(cidx=21)·웹/모바일/IT(cidx=20) 목록을 스크래핑해 수집하며, 제목 키워드로 개발 관련 공모전만 남긴다. 항목 URL은 위비티 `ix` 기준으로 정규화해 카테고리 간 중복을 제거한다.
-- 공모전은 위비티 상세(gbn=viewok) 페이지를 항목별로 fetch해 원문 홈페이지를 `url`로, 포스터(og:image)를 `thumbnail`로, 접수기간 종료일을 `deadline`으로 사용한다. 홈페이지가 없으면 위비티 상세 URL로 폴백한다.
-- 공모전의 안정적인 식별자는 `url`이 아니라 slug(`wevity-{ix}`)다. 홈페이지 링크는 등록 후에 붙거나 바뀌므로 `url`은 유동적이다. 따라서 이미 있는 공모전은 slug로 찾아 `url`/`thumbnail`/`deadline`을 update하고, 신규만 insert한다.
+- `contest`는 콘테스트코리아 `학문•과학•IT`(Txt_bcode=030310001) 목록을 스크래핑해 수집하며, 제목 키워드로 개발 관련 공모전만 남긴다. 항목 URL은 `str_no` 기준으로 정규화한다.
+- 콘테스트코리아 목록에는 접수 종료일의 연도가 없어 D-day 배지로 `deadline`을 만든다. D-day가 없는 항목(접수예정·심사중·마감)은 `deadline=null`(상시)로 잘못 노출되므로 수집하지 않는다.
+- 콘테스트코리아 목록에는 썸네일이 없어 수집 단계의 OG 이미지 폴백으로 채운다.
+- 위비티는 Cloudflare가 데이터센터 IP를 HTTP 403으로 차단해 Vercel 크론에서 수집이 불가능하다(로컬 가정용 IP는 200). 소스는 `is_active=false`로 비활성화했고, 차단이 풀리면 되돌릴 수 있도록 어댑터와 기존 콘텐츠는 유지한다.
+- 공모전의 안정적인 식별자는 `url`이 아니라 slug다. 이미 있는 공모전은 slug로 찾아 `url`/`thumbnail`/`deadline`을 update하고, 신규만 insert한다.
+- 공모전 목록 페이지 수는 `CONTESTKOREA_MAX_LIST_PAGES`(기본 2), 소스당 상한은 `INGEST_CONTEST_MAX_ITEMS`(기본 60)로 조절한다. 과거 등록분 백필 시 늘려 실행한다.
 - 공모전 진행 상태(진행중/종료)는 별도 컬럼 없이 `deadline` 기준으로 파생한다 (`deadline` 없음 = 상시 → 진행중).
 - 공모전 유형은 `contest_type`(hackathon/dev-contest/idea-contest/data-competition)으로 분류하며 주제 카테고리는 연결하지 않는다.
 - 기존 `type`은 콘텐츠 표시 방식이나 원본 미디어를 나타내는 보조 필드로 유지한다.

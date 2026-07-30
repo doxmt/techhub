@@ -277,6 +277,44 @@ describe("fetchWevity", () => {
     expect(result[0]!.section).toBe("contest");
   });
 
+  it("기본으로 목록 3페이지를 조회한다", async () => {
+    stubFetch();
+    await fetchWevity(SOURCE, new AbortController().signal);
+
+    const listCalls = vi
+      .mocked(fetch)
+      .mock.calls.map((c) => String(c[0]))
+      .filter((u) => !u.includes("gbn=viewok"));
+    expect(listCalls).toHaveLength(3);
+  });
+
+  it("WEVITY_MAX_LIST_PAGES로 조회 페이지 수를 조절한다", async () => {
+    // 과거 등록분 백필 시 로컬에서 페이지 수를 늘려 실행한다
+    vi.stubEnv("WEVITY_MAX_LIST_PAGES", "7");
+    stubFetch();
+    await fetchWevity(SOURCE, new AbortController().signal);
+
+    const listCalls = vi
+      .mocked(fetch)
+      .mock.calls.map((c) => String(c[0]))
+      .filter((u) => !u.includes("gbn=viewok"));
+    expect(listCalls).toHaveLength(7);
+    vi.unstubAllEnvs();
+  });
+
+  it("WEVITY_MAX_LIST_PAGES가 잘못된 값이면 기본값을 쓴다", async () => {
+    vi.stubEnv("WEVITY_MAX_LIST_PAGES", "abc");
+    stubFetch();
+    await fetchWevity(SOURCE, new AbortController().signal);
+
+    const listCalls = vi
+      .mocked(fetch)
+      .mock.calls.map((c) => String(c[0]))
+      .filter((u) => !u.includes("gbn=viewok"));
+    expect(listCalls).toHaveLength(3);
+    vi.unstubAllEnvs();
+  });
+
   it("상세 페이지의 원문 링크/포스터/마감일로 항목을 보강한다", async () => {
     stubFetch();
 

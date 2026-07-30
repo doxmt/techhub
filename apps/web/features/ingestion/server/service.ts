@@ -9,7 +9,15 @@ const FETCH_TIMEOUT_MS = 10_000;
 const CONTEST_FETCH_TIMEOUT_MS = 45_000;
 const MAX_ITEMS_PER_SOURCE = 10;
 // 공모전 목록은 페이지당 16개 안팎 × 3페이지라 상한을 따로 둔다
-const MAX_CONTEST_ITEMS_PER_SOURCE = 60;
+const DEFAULT_MAX_CONTEST_ITEMS_PER_SOURCE = 60;
+
+/** 백필 시 INGEST_CONTEST_MAX_ITEMS로 상한을 늘려 실행한다. */
+function maxContestItems(): number {
+  const parsed = Number(process.env.INGEST_CONTEST_MAX_ITEMS);
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_MAX_CONTEST_ITEMS_PER_SOURCE;
+}
 const SOURCE_CONCURRENCY = 5;
 
 type IngestionSection = "article" | "news" | "contest";
@@ -194,9 +202,7 @@ async function ingestSource(
 
     const capped = allPayloads.slice(
       0,
-      source.section === "contest"
-        ? MAX_CONTEST_ITEMS_PER_SOURCE
-        : MAX_ITEMS_PER_SOURCE,
+      source.section === "contest" ? maxContestItems() : MAX_ITEMS_PER_SOURCE,
     );
 
     // 썸네일 없는 항목: OG 이미지 병렬 폴백
@@ -440,6 +446,8 @@ async function refreshContests(
     }
     if (payload.thumbnail) patch.thumbnail = payload.thumbnail;
     if (payload.deadline) patch.deadline = payload.deadline;
+    // 공고 등록일. 어댑터가 출처의 안정적인 값에서 파생하므로 재실행해도 값이 흔들리지 않는다
+    if (payload.published_at) patch.published_at = payload.published_at;
 
     if (Object.keys(patch).length === 0) continue;
 

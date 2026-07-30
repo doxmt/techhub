@@ -1,5 +1,6 @@
 import { fetchRssAtom } from "./rss-atom";
 import { fetchWevity } from "./wevity";
+import { fetchContestKorea } from "./contestkorea";
 import type { IngestionSource, ContentItemInsert } from "../parser";
 
 export type FeedAdapter = (
@@ -11,6 +12,7 @@ const ADAPTERS: Record<string, FeedAdapter> = {
   rss: fetchRssAtom,
   atom: fetchRssAtom,
   wevity: fetchWevity,
+  contestkorea: fetchContestKorea,
 };
 
 export function getAdapter(feedType: string): FeedAdapter {
