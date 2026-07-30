@@ -18,8 +18,14 @@ import {
   parseFeedParams,
 } from "@techhub/shared";
 import { getFeed } from "../features/feed/server/service";
-import { getSavedFeed } from "../features/auth/server/service";
+import {
+  getSavedFeed,
+  getSavedCounts,
+  SAVED_SECTIONS,
+} from "../features/auth/server/service";
+import type { SavedSection } from "../features/auth/server/service";
 import { FeedInfiniteScroll } from "../components/feed/feed-infinite-scroll";
+import { BookmarkTabs } from "./bookmarks/bookmark-tabs";
 import { FeedSortFilter } from "../components/feed/feed-sort-filter";
 import { ThemeToggle } from "../components/theme-toggle";
 import { HeaderUserMenu } from "../features/auth/components/header-user-menu";
@@ -95,14 +101,25 @@ export default async function HomePage({ searchParams }: Props) {
     sort: currentSort as import("../features/feed/server/service").FeedSort,
     period: currentPeriod as import("../features/feed/server/service").FeedPeriod,
   };
+  const currentSavedSection: SavedSection =
+    typeof params.saved === "string" &&
+    (SAVED_SECTIONS as readonly string[]).includes(params.saved)
+      ? (params.saved as SavedSection)
+      : "all";
+
   const { items, nextCursor } =
     placeholderSections.includes(currentSection)
       ? { items: [], nextCursor: null }
       : currentSection === "saved"
-        ? authUser
-          ? await getSavedFeed({ userId: authUser.id })
-          : { items: [], nextCursor: null }
+        ? await getSavedFeed({
+            userId: authUser?.id ?? null,
+            section: currentSavedSection,
+          })
         : await getFeed(feedFilters, undefined, authUser?.id);
+
+  const savedCounts = await getSavedCounts(
+    currentSection === "saved" ? (authUser?.id ?? null) : null,
+  );
 
   const sectionTabs = [
     {
@@ -614,6 +631,14 @@ export default async function HomePage({ searchParams }: Props) {
                 </a>
               </div>
             </section>
+          ) : currentSection === "saved" ? (
+            <BookmarkTabs
+              items={items}
+              nextCursor={nextCursor}
+              activeSection={currentSavedSection}
+              counts={savedCounts}
+              isLoggedIn={!!authUser}
+            />
           ) : (
             <FeedInfiniteScroll
               initialItems={items}

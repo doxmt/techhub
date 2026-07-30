@@ -5,15 +5,16 @@
 
 ## Project Context
 
-TechHub는 개발 관련 아티클/유튜브를 관리자가 선별해 등록하고, 사용자가 로그인 없이 최신순 피드에서 검색/필터링하는 공개 큐레이션 웹앱이다.
-MVP는 Vercel + Supabase 기반이며 AI 기능, K8s/GitOps, 일반 사용자 제출, 북마크/좋아요는 제외한다.
-로그인은 관리자 전용이며 GitHub OAuth와 이메일 allowlist를 사용한다.
+TechHub는 개발 뉴스/아티클/공모전을 RSS·스크래핑으로 자동 수집하고, 사용자가 로그인 없이 최신순 피드에서 검색/필터링하는 공개 큐레이션 웹앱이다.
+MVP는 Vercel + Supabase 기반이며 AI 기능, K8s/GitOps, 일반 사용자 제출은 제외한다.
+로그인은 선택이다. 비로그인으로 피드 전체를 이용할 수 있고, 이메일/비밀번호로 가입하면 북마크·좋아요·마이페이지를 쓸 수 있다.
+관리자(`profiles.role='admin'`) 화면은 아직 구현하지 않았다.
 
 ## Non-Obvious Rules
 
 - 터미널 멀티플렉서는 tmux가 아닌 **cmux**를 사용한다. tmux 명령어가 필요한 경우 cmux 동등 명령어로 대체하라.
 - 프로젝트는 Turborepo + pnpm workspace 기준이다. npm lockfile을 새로 만들지 않는다.
-- 일반 사용자는 로그인하지 않는다. Auth 관련 UI는 관리자 전용이다.
+- 피드 조회는 로그인 없이 동작해야 한다. 로그인이 필요한 기능은 북마크/좋아요/마이페이지뿐이다.
 - Supabase 쓰기 권한은 서버 체크와 RLS policy를 둘 다 통과해야 한다.
 - Supabase client, Server Actions, UI 컴포넌트는 `apps/web` 안에 둔다.
 - `packages/shared`에는 타입, 상수, 순수 유틸만 둔다. DB client나 React 컴포넌트를 넣지 않는다.

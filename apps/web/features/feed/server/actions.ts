@@ -15,8 +15,11 @@ import {
   FEED_SECTIONS,
   CATEGORY_SLUGS,
   SOURCES,
+  NEWS_SOURCES,
 } from "@techhub/shared";
 import { createClient } from "../../../lib/supabase/server";
+import { getSavedFeed, SAVED_SECTIONS } from "../../auth/server/service";
+import type { SavedSection } from "../../auth/server/service";
 
 export async function loadMoreFeed(input: {
   cursor: string;
@@ -26,6 +29,7 @@ export async function loadMoreFeed(input: {
   type?: string;
   lang?: string;
   section?: string;
+  saved?: string;  // section='saved'일 때의 하위 탭
   sort?: string;
   period?: string;
   cstatus?: string;
@@ -42,8 +46,23 @@ export async function loadMoreFeed(input: {
       ? (input.section as FeedSection)
       : undefined;
 
-  if (section === "recommended" || section === "saved") {
+  if (section === "recommended") {
     return { items: [], nextCursor: null };
+  }
+
+  if (section === "saved") {
+    const supabase = await createClient();
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    if (!userId) return { items: [], nextCursor: null };
+
+    const saved =
+      input.saved !== undefined &&
+      (SAVED_SECTIONS as readonly string[]).includes(input.saved)
+        ? (input.saved as SavedSection)
+        : "all";
+
+    return getSavedFeed({ userId, cursor: input.cursor, section: saved });
   }
 
   const cstatus =
@@ -66,9 +85,11 @@ export async function loadMoreFeed(input: {
           .slice(0, 3)
       : undefined;
 
+  // 뉴스 출처는 NEWS_SOURCES에 따로 있다. SOURCES만 검사하면 최신뉴스 섹션에서
+  // 다음 페이지부터 출처 필터가 풀려 다른 출처가 섞인다.
   const source =
     typeof input.source === "string" &&
-    (SOURCES as readonly string[]).includes(input.source)
+    ([...SOURCES, ...NEWS_SOURCES] as readonly string[]).includes(input.source)
       ? input.source
       : undefined;
 

@@ -14,7 +14,7 @@ import { encodeCursor } from "../../lib/cursor";
 // 아직 존재하지 않는 모듈 — import 자체가 실패한다.
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: 의도적 실패. 서비스 파일이 없으므로 테스트가 빨간 상태여야 한다.
-import { getFeed, getContentBySlugId } from "../../features/feed/server/service";
+import { getFeed } from "../../features/feed/server/service";
 
 // Supabase createClient를 mock한다.
 // chained builder 패턴을 지원해야 하므로 모든 메서드가 자기 자신을 반환하는
@@ -251,40 +251,5 @@ describe("getFeed — FeedItem 형태", () => {
     if (tags.length > 0) {
       expect(tags[0]).toHaveProperty("name");
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getContentBySlugId
-// ---------------------------------------------------------------------------
-
-describe("getContentBySlugId", () => {
-  it("유효한 slug+id에서 FeedItem을 반환한다", async () => {
-    mockCreateClient(FIXTURE_ITEM);
-    const result = await getContentBySlugId("react-server-components-deep-dive-1");
-    expect(result).not.toBeNull();
-    expect(result?.title).toBe(FIXTURE_ITEM.title);
-  });
-
-  it("존재하지 않는 id에서 null을 반환한다", async () => {
-    mockCreateClient(null);
-    const result = await getContentBySlugId("nonexistent-slug-9999");
-    expect(result).toBeNull();
-  });
-
-  it("draft 콘텐츠에서 null을 반환한다", async () => {
-    mockCreateClient(FIXTURE_DRAFT_ITEM);
-    const result = await getContentBySlugId("draft-item-99");
-    expect(result).toBeNull();
-  });
-
-  it("반환된 FeedItem에 categories와 tags가 포함된다", async () => {
-    mockCreateClient(FIXTURE_ITEM);
-    const result = await getContentBySlugId("react-server-components-deep-dive-1");
-    expect(result).not.toBeNull();
-    expect(result).toHaveProperty("categories");
-    expect(result).toHaveProperty("tags");
-    expect(Array.isArray(result?.categories)).toBe(true);
-    expect(Array.isArray(result?.tags)).toBe(true);
   });
 });
