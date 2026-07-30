@@ -446,6 +446,8 @@ async function refreshContests(
     }
     if (payload.thumbnail) patch.thumbnail = payload.thumbnail;
     if (payload.deadline) patch.deadline = payload.deadline;
+    // 공고 등록일. 어댑터가 출처의 안정적인 값에서 파생하므로 재실행해도 값이 흔들리지 않는다
+    if (payload.published_at) patch.published_at = payload.published_at;
 
     if (Object.keys(patch).length === 0) continue;
 

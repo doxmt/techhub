@@ -8,6 +8,7 @@ import {
 } from "./wevity";
 
 const ORIGIN = "https://www.contestkorea.com";
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0 (compatible; TechHubBot/1.0)",
@@ -44,6 +45,28 @@ function cleanText(html: string): string {
 function maxListPages(): number {
   const parsed = Number(process.env.CONTESTKOREA_MAX_LIST_PAGES);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_LIST_PAGES;
+}
+
+/**
+ * `str_no` 앞 8자리(YYYYMMDD)를 공고 등록일로 해석한다.
+ * 피드 정렬과 카드의 등록일 표시가 수집 시각이 아니라 공고 등록일 기준이 되도록 한다.
+ * 형식이 깨지면 null을 반환해 호출부가 수집 시각으로 폴백한다.
+ */
+export function publishedAtFromStrNo(strNo: string): string | null {
+  const match = strNo.match(/^(\d{4})(\d{2})(\d{2})/);
+  if (!match) return null;
+
+  const year = parseInt(match[1]!, 10);
+  const month = parseInt(match[2]!, 10);
+  const day = parseInt(match[3]!, 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  // KST 자정 기준
+  const utcMs = Date.UTC(year, month - 1, day) - KST_OFFSET_MS;
+  const date = new Date(utcMs);
+  // 존재하지 않는 날짜(예: 02-31)는 걸러낸다
+  if (date.getUTCMonth() !== (month - 1 + 12) % 12) return null;
+  return date.toISOString();
 }
 
 /**
@@ -97,7 +120,8 @@ export function parseContestKoreaList(
       source: parseHost(hostHtml ?? "") ?? source.name,
       language: source.default_language,
       status: "published",
-      published_at: now.toISOString(),
+      // 공고 등록일(str_no 앞 8자리). 파싱 실패 시에만 수집 시각으로 폴백한다
+      published_at: publishedAtFromStrNo(strNo) ?? now.toISOString(),
       deadline,
       contest_type: classifyContestType(title),
     });
