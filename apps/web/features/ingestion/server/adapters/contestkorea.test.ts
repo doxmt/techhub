@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   parseContestKoreaList,
   parseHost,
+  publishedAtFromStrNo,
   fetchContestKorea,
 } from "./contestkorea";
 import type { IngestionSource } from "../parser";
@@ -64,6 +65,25 @@ const DEV_ITEM = item({
 
 // D-day 기준이라 시간 고정이 필요하다
 const NOW = new Date("2026-07-30T02:00:00.000Z");
+
+describe("publishedAtFromStrNo", () => {
+  it("앞 8자리를 공고 등록일(KST 자정)로 해석한다", () => {
+    // 2026-07-14 KST 00:00 == 2026-07-13T15:00:00Z
+    expect(publishedAtFromStrNo("202607140057")).toBe("2026-07-13T15:00:00.000Z");
+    expect(publishedAtFromStrNo("202606090019")).toBe("2026-06-08T15:00:00.000Z");
+  });
+
+  it("형식이 맞지 않으면 null을 반환한다", () => {
+    expect(publishedAtFromStrNo("20260")).toBeNull();
+    expect(publishedAtFromStrNo("abcdefgh")).toBeNull();
+    expect(publishedAtFromStrNo("")).toBeNull();
+  });
+
+  it("존재하지 않는 날짜는 null을 반환한다", () => {
+    expect(publishedAtFromStrNo("202613010001")).toBeNull();
+    expect(publishedAtFromStrNo("202602310001")).toBeNull();
+  });
+});
 
 describe("parseHost", () => {
   it("주최 기관명을 뽑는다", () => {
@@ -177,6 +197,21 @@ describe("parseContestKoreaList", () => {
     expect(byslug["contestkorea-20"]).toBe("hackathon");
     expect(byslug["contestkorea-21"]).toBe("data-competition");
     expect(byslug["contestkorea-22"]).toBe("dev-contest");
+  });
+
+  it("published_at을 수집 시각이 아니라 공고 등록일로 넣는다", () => {
+    const result = parseContestKoreaList(listHtml(DEV_ITEM), SOURCE, NOW);
+
+    // str_no=202607210057 → 2026-07-21 KST 자정. NOW(07-30)가 아니다
+    expect(result[0]!.published_at).toBe("2026-07-20T15:00:00.000Z");
+  });
+
+  it("str_no에서 날짜를 못 읽으면 수집 시각으로 폴백한다", () => {
+    const html = listHtml(item({ strNo: "99", title: "개발 공모전" }));
+
+    expect(parseContestKoreaList(html, SOURCE, NOW)[0]!.published_at).toBe(
+      NOW.toISOString(),
+    );
   });
 
   it("항목이 없으면 빈 배열을 반환한다", () => {
