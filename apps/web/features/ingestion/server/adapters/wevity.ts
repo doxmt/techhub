@@ -30,7 +30,7 @@ function cleanText(html: string): string {
 }
 
 // 영상/디자인/마케팅류 공모전 제외 키워드
-const NON_DEV_PATTERN =
+export const NON_DEV_PATTERN =
   /영상|UCC|사진|디자인|웹툰|일러스트|포스터|광고|마케팅|수기|에세이|논문|작문|문학|시나리오|캐릭터|굿즈|네이밍|슬로건|미술|음악|댄스/i;
 
 // 개발 관련 공모전 포함 키워드

@@ -25,7 +25,7 @@ export type IngestionSource = {
   id: string | number;
   name: string;
   feed_url: string;
-  feed_type: "rss" | "atom" | "wevity";
+  feed_type: "rss" | "atom" | "wevity" | "contestkorea";
   default_language: "ko" | "en";
   section?: "article" | "news" | "contest";
 };
