@@ -5,10 +5,8 @@
 set -u
 
 LOG_DIR=".claude/logs"
-PIPE="${LOG_DIR}/agents.pipe"
+LOG_FILE="${LOG_DIR}/agents.log"
 mkdir -p "$LOG_DIR"
-if [ -e "$PIPE" ] && [ ! -p "$PIPE" ]; then rm -f "$PIPE"; fi
-[ -p "$PIPE" ] || mkfifo "$PIPE"
 
 INPUT=$(cat)
 
@@ -44,10 +42,10 @@ AGENT_DESC="${AGENT_INFO##*|}"
 TIMESTAMP=$(date "+%H:%M:%S")
 
 if [ -n "$AGENT_DESC" ]; then
-  { echo "[${TIMESTAMP}] ▶ ${AGENT_NAME} — ${AGENT_DESC}" > "$PIPE"; } 2>/dev/null &
+  echo "[${TIMESTAMP}] ▶ ${AGENT_NAME} — ${AGENT_DESC}" >> "$LOG_FILE"
   cmux notify --title "▶ ${AGENT_NAME}" --body "${AGENT_DESC}" 2>/dev/null || true
 else
-  { echo "[${TIMESTAMP}] ▶ ${AGENT_NAME}" > "$PIPE"; } 2>/dev/null &
+  echo "[${TIMESTAMP}] ▶ ${AGENT_NAME}" >> "$LOG_FILE"
   cmux notify --title "▶ ${AGENT_NAME}" --body "실행 중..." 2>/dev/null || true
 fi
 
