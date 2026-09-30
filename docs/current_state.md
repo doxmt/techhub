@@ -4,6 +4,18 @@ description: 가장 최근 세션의 작업 상태와 다음 할 일
 type: project
 ---
 
+## 현재 작업 (2026-09-30)
+
+브랜치: `fix/59-feed-filter-navigation-performance`
+이슈 #59 — 메인 피드 카테고리 및 필터 전환 성능 개선
+
+### 완료
+
+- 메인의 섹션·출처·주제·공모전·보기 방식 내부 링크를 Next.js `Link`로 전환해, 필터 변경 시 문서 전체를 다시 불러오지 않고 App Router 내에서 이동하도록 변경
+- 로그인 프로필, 피드, 저장 수 조회를 병렬로 시작해 필터 전환의 서버 대기 시간을 축소
+- 로컬 데스크톱에서 아티클 → Frontend 주제 필터 전환과 URL 상태(`?section=article&categories=fe`) 확인
+- `pnpm lint`, `pnpm test`, `pnpm typecheck`, `pnpm build` 통과
+
 ## 마지막 작업 (2026-07-29)
 
 브랜치: `fix/44-공모전수집-북마크페이지네이션`

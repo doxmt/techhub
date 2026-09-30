@@ -10,6 +10,7 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
+import Link from "next/link";
 import {
   CATEGORIES,
   CONTEST_TYPES,
@@ -58,19 +59,24 @@ export default async function HomePage({ searchParams }: Props) {
   const { data: userData } = await supabase.auth.getUser();
   const authUser = userData?.user ?? null;
 
-  let userProfile: { nickname: string; email: string } | null = null;
-  if (authUser) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("nickname, email")
-      .eq("user_id", authUser.id)
-      .single();
-    if (profile) {
-      userProfile = { nickname: profile.nickname ?? authUser.email ?? "", email: profile.email ?? authUser.email ?? "" };
-    } else {
-      userProfile = { nickname: authUser.email ?? "", email: authUser.email ?? "" };
-    }
-  }
+  const userProfilePromise = authUser
+    ? supabase
+        .from("profiles")
+        .select("nickname, email")
+        .eq("user_id", authUser.id)
+        .single()
+        .then(({ data: profile }) =>
+          profile
+            ? {
+                nickname: profile.nickname ?? authUser.email ?? "",
+                email: profile.email ?? authUser.email ?? "",
+              }
+            : {
+                nickname: authUser.email ?? "",
+                email: authUser.email ?? "",
+              },
+        )
+    : Promise.resolve(null);
 
   const placeholderSections = ["recommended"];
   const activeCategories =
@@ -107,19 +113,22 @@ export default async function HomePage({ searchParams }: Props) {
       ? (params.saved as SavedSection)
       : "all";
 
-  const { items, nextCursor } =
-    placeholderSections.includes(currentSection)
-      ? { items: [], nextCursor: null }
-      : currentSection === "saved"
-        ? await getSavedFeed({
+  const feedPromise = placeholderSections.includes(currentSection)
+    ? Promise.resolve({ items: [], nextCursor: null })
+    : currentSection === "saved"
+      ? getSavedFeed({
             userId: authUser?.id ?? null,
             section: currentSavedSection,
           })
-        : await getFeed(feedFilters, undefined, authUser?.id);
-
-  const savedCounts = await getSavedCounts(
-    currentSection === "saved" ? (authUser?.id ?? null) : null,
+      : getFeed(feedFilters, undefined, authUser?.id);
+  const savedCountsPromise = getSavedCounts(
+    currentSection === "saved" ? authUser?.id ?? null : null,
   );
+  const [{ items, nextCursor }, userProfile, savedCounts] = await Promise.all([
+    feedPromise,
+    userProfilePromise,
+    savedCountsPromise,
+  ]);
 
   const sectionTabs = [
     {
@@ -272,7 +281,7 @@ export default async function HomePage({ searchParams }: Props) {
     <main className="min-h-screen bg-neutral-50 text-neutral-950 dark:bg-neutral-900 dark:text-neutral-50">
       <header className="border-b border-neutral-200 bg-white/90 dark:border-neutral-700 dark:bg-neutral-800/90">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <a href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-md border border-teal-200 bg-teal-600 text-white dark:border-teal-900/60 dark:bg-teal-500 dark:text-neutral-950">
               <Code2 className="size-5" aria-hidden="true" />
             </div>
@@ -280,7 +289,7 @@ export default async function HomePage({ searchParams }: Props) {
               <p className="text-sm font-semibold">TechHub</p>
               <p className="text-xs text-neutral-500">Developer hub community</p>
             </div>
-          </a>
+          </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <HeaderUserMenu user={userProfile} />
@@ -354,7 +363,7 @@ export default async function HomePage({ searchParams }: Props) {
                     const isActive = currentSection === tab.value;
                     const TabIcon = tab.icon;
                     return (
-                      <a
+                      <Link
                         key={tab.value}
                         href={sectionHref(tab.value)}
                         aria-current={isActive ? "page" : undefined}
@@ -367,7 +376,7 @@ export default async function HomePage({ searchParams }: Props) {
                       >
                         <TabIcon className="mr-2 size-4 shrink-0" aria-hidden="true" />
                         {tab.label}
-                      </a>
+                      </Link>
                     );
                   })}
                 </nav>
@@ -396,7 +405,7 @@ export default async function HomePage({ searchParams }: Props) {
                     className="grid grid-cols-2 rounded-md border border-neutral-200 bg-white p-1 dark:border-neutral-700 dark:bg-neutral-800/70"
                     aria-label="보기 방식"
                   >
-                    <a
+                    <Link
                       href={viewHref("list")}
                       aria-current={currentView === "list" ? "page" : undefined}
                       className={cn(
@@ -408,8 +417,8 @@ export default async function HomePage({ searchParams }: Props) {
                     >
                       <List className="size-4" aria-hidden="true" />
                       <span className="sr-only">한 줄 보기</span>
-                    </a>
-                    <a
+                    </Link>
+                    <Link
                       href={viewHref("grid")}
                       aria-current={currentView === "grid" ? "page" : undefined}
                       className={cn(
@@ -421,7 +430,7 @@ export default async function HomePage({ searchParams }: Props) {
                     >
                       <Grid2X2 className="size-4" aria-hidden="true" />
                       <span className="sr-only">4개씩 보기</span>
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -432,7 +441,7 @@ export default async function HomePage({ searchParams }: Props) {
                     aria-label="출처"
                     className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
                   >
-                    <a
+                    <Link
                       href={sourceHref(undefined)}
                       aria-current={!currentSource ? "page" : undefined}
                       className={cn(
@@ -443,11 +452,11 @@ export default async function HomePage({ searchParams }: Props) {
                       )}
                     >
                       전체
-                    </a>
+                    </Link>
                     {sourceOptions.map((source) => {
                       const isActive = currentSource === source;
                       return (
-                        <a
+                        <Link
                           key={source}
                           href={sourceHref(isActive ? undefined : source)}
                           aria-current={isActive ? "page" : undefined}
@@ -459,7 +468,7 @@ export default async function HomePage({ searchParams }: Props) {
                           )}
                         >
                           {source}
-                        </a>
+                        </Link>
                       );
                     })}
                   </nav>
@@ -469,7 +478,7 @@ export default async function HomePage({ searchParams }: Props) {
                       aria-label="주제"
                       className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
                     >
-                      <a
+                      <Link
                         href={clearCategoriesHref()}
                         aria-current={currentCategories.length === 0 ? "page" : undefined}
                         className={cn(
@@ -480,12 +489,12 @@ export default async function HomePage({ searchParams }: Props) {
                         )}
                       >
                         전체
-                      </a>
+                      </Link>
                       {CATEGORIES.map((category) => {
                         const isActive = currentCategories.includes(category.slug);
                         const isDisabled = !isActive && currentCategories.length >= 3;
                         return (
-                          <a
+                          <Link
                             key={category.slug}
                             href={isDisabled ? "#" : toggleCategoryHref(category.slug)}
                             aria-current={isActive ? "page" : undefined}
@@ -500,7 +509,7 @@ export default async function HomePage({ searchParams }: Props) {
                             )}
                           >
                             {category.name}
-                          </a>
+                          </Link>
                         );
                       })}
                       {currentCategories.length > 0 && (
@@ -527,7 +536,7 @@ export default async function HomePage({ searchParams }: Props) {
                     ).map((status) => {
                       const isActive = currentContestStatus === status.value;
                       return (
-                        <a
+                        <Link
                           key={status.value}
                           href={contestStatusHref(status.value)}
                           aria-current={isActive ? "page" : undefined}
@@ -539,7 +548,7 @@ export default async function HomePage({ searchParams }: Props) {
                           )}
                         >
                           {status.label}
-                        </a>
+                        </Link>
                       );
                     })}
                   </nav>
@@ -548,7 +557,7 @@ export default async function HomePage({ searchParams }: Props) {
                     aria-label="유형"
                     className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
                   >
-                    <a
+                    <Link
                       href={contestTypeHref(undefined)}
                       aria-current={!currentContestType ? "page" : undefined}
                       className={cn(
@@ -559,11 +568,11 @@ export default async function HomePage({ searchParams }: Props) {
                       )}
                     >
                       전체
-                    </a>
+                    </Link>
                     {CONTEST_TYPES.map((contestType) => {
                       const isActive = currentContestType === contestType.slug;
                       return (
-                        <a
+                        <Link
                           key={contestType.slug}
                           href={contestTypeHref(isActive ? undefined : contestType.slug)}
                           aria-current={isActive ? "page" : undefined}
@@ -575,7 +584,7 @@ export default async function HomePage({ searchParams }: Props) {
                           )}
                         >
                           {contestType.name}
-                        </a>
+                        </Link>
                       );
                     })}
                   </nav>
@@ -603,13 +612,13 @@ export default async function HomePage({ searchParams }: Props) {
                 ))}
               </div>
               <div className="mt-5">
-                <a
+                <Link
                   href={sectionHref("article")}
                   className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 >
                   아티클 보기
                   <ArrowUpRight className="size-4" aria-hidden="true" />
-                </a>
+                </Link>
               </div>
             </section>
           ) : showSavedLoginRequired ? (
@@ -622,13 +631,13 @@ export default async function HomePage({ searchParams }: Props) {
                 저장한 콘텐츠를 보려면 로그인해 주세요. 로그인 후 북마크한 뉴스와 아티클을 이곳에서 확인할 수 있습니다.
               </p>
               <div className="mt-5">
-                <a
+                <Link
                   href={sectionHref("article")}
                   className="inline-flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 >
                   아티클 보기
                   <ArrowUpRight className="size-4" aria-hidden="true" />
-                </a>
+                </Link>
               </div>
             </section>
           ) : currentSection === "saved" ? (
