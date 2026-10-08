@@ -4,6 +4,17 @@ description: 가장 최근 세션의 작업 상태와 다음 할 일
 type: project
 ---
 
+## 현재 작업 (2026-10-08)
+
+브랜치: `fix/geeknews-ingestion-limit`
+
+### 완료
+
+- GeekNews 한국어 최신 목록의 최근 24시간 게시량을 사이트 목록 기준으로 재확인: 24개
+- GeekNews만 수집 상한을 30개로 늘리고, 다른 RSS/Atom 소스는 기존 10개를 유지하도록 변경
+- GeekNews 30개·다른 RSS/Atom 소스 10개 상한을 검증하는 회귀 테스트 추가
+- `pnpm --filter @techhub/web test`, `lint`, `typecheck`, `pnpm build` 통과
+
 ## 현재 작업 (2026-09-30)
 
 브랜치: `fix/59-feed-filter-navigation-performance`
