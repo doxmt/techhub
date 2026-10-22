@@ -2,6 +2,7 @@ import {
   ArrowUpRight,
   Bookmark,
   BookOpen,
+  CalendarDays,
   Code2,
   Grid2X2,
   List,
@@ -151,6 +152,13 @@ export default async function HomePage({ searchParams }: Props) {
       heading: "개발자 공모전",
       description: "진행 중인 해커톤과 개발 공모전을 마감일과 함께 모아봅니다.",
       icon: Trophy,
+    },
+    {
+      value: "event",
+      label: "행사",
+      heading: "코엑스 개발 행사",
+      description: "코엑스에서 열리는 개발자 행사·IT 전시회·세미나를 일정순으로 모아봅니다.",
+      icon: CalendarDays,
     },
     {
       value: "recommended",
@@ -381,26 +389,28 @@ export default async function HomePage({ searchParams }: Props) {
                   })}
                 </nav>
                 <div className="flex gap-2">
-                  <FeedSortFilter
-                    currentSort={currentSort}
-                    currentPeriod={currentPeriod}
-                    preservedParams={{
-                      q: filters.q,
-                      categories:
-                        currentSection === "article" && currentCategories.length > 0
-                          ? currentCategories.join(",")
-                          : undefined,
-                      source: currentSource,
-                      lang: filters.lang,
-                      section: currentSection !== "news" ? currentSection : undefined,
-                      view: currentView === "list" ? currentView : undefined,
-                      cstatus:
-                        currentSection === "contest" && currentContestStatus === "closed"
-                          ? currentContestStatus
-                          : undefined,
-                      ctype: currentContestType,
-                    }}
-                  />
+                  {currentSection !== "event" && (
+                    <FeedSortFilter
+                      currentSort={currentSort}
+                      currentPeriod={currentPeriod}
+                      preservedParams={{
+                        q: filters.q,
+                        categories:
+                          currentSection === "article" && currentCategories.length > 0
+                            ? currentCategories.join(",")
+                            : undefined,
+                        source: currentSource,
+                        lang: filters.lang,
+                        section: currentSection !== "news" ? currentSection : undefined,
+                        view: currentView === "list" ? currentView : undefined,
+                        cstatus:
+                          currentSection === "contest" && currentContestStatus === "closed"
+                            ? currentContestStatus
+                            : undefined,
+                        ctype: currentContestType,
+                      }}
+                    />
+                  )}
                   <div
                     className="grid grid-cols-2 rounded-md border border-neutral-200 bg-white p-1 dark:border-neutral-700 dark:bg-neutral-800/70"
                     aria-label="보기 방식"
