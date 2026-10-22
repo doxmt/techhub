@@ -120,3 +120,10 @@
 - 상세 페이지 미구현 확정 → `getContentBySlugId`, `lib/slug.ts` 및 관련 테스트 제거
 - 문서 동기화: CLAUDE.md, architecture.md, DESIGN.md, roadmap.md, current_state.md
 - 이슈 #44 생성, PR #45 생성 (4개 커밋으로 분리)
+
+## 2026-10-22
+- 코엑스 개발 행사 섹션(`section=event`) 추가 (이슈 #62)
+- 코엑스 전체 일정 목록 스크래핑 어댑터(`coex`) 추가, 제목 키워드로 개발 행사 판별 (실측 7건 추출)
+- migration `20261022090000_coex_event_section.sql`: section/feed_type CHECK 확장, 코엑스 소스 추가
+- 홈 `행사` 탭, 카드·미리보기 행사 기간/장소/D-n 배지, 저장됨 `행사` 하위 탭, `/api/cron/ingest/events` 수동 트리거
+- 계획 `docs/plans/coex-event-section.md`, 가정은 `open-questions.md`에 기록

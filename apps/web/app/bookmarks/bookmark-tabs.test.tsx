@@ -44,7 +44,7 @@ function makeItem(overrides: Partial<FeedItem>): FeedItem {
   };
 }
 
-const counts = { all: 4, news: 1, article: 2, contest: 1 };
+const counts = { all: 4, news: 1, article: 2, contest: 1, event: 0 };
 
 describe("BookmarkTabs", () => {
   it("각 섹션 탭을 URL query 링크로 렌더링한다", () => {
@@ -72,6 +72,10 @@ describe("BookmarkTabs", () => {
     expect(screen.getByRole("link", { name: /공모전/ })).toHaveAttribute(
       "href",
       "/?section=saved&saved=contest",
+    );
+    expect(screen.getByRole("link", { name: /행사/ })).toHaveAttribute(
+      "href",
+      "/?section=saved&saved=event",
     );
   });
 
@@ -133,7 +137,7 @@ describe("BookmarkTabs", () => {
         items={[]}
         nextCursor={null}
         activeSection="all"
-        counts={{ all: 0, news: 0, article: 0, contest: 0 }}
+        counts={{ all: 0, news: 0, article: 0, contest: 0, event: 0 }}
         isLoggedIn={false}
       />,
     );
@@ -147,7 +151,7 @@ describe("BookmarkTabs", () => {
         items={[]}
         nextCursor={null}
         activeSection="news"
-        counts={{ all: 3, news: 0, article: 3, contest: 0 }}
+        counts={{ all: 3, news: 0, article: 3, contest: 0, event: 0 }}
         isLoggedIn={false}
       />,
     );

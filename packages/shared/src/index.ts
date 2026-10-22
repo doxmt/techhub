@@ -77,6 +77,7 @@ export const FEED_SECTIONS = [
   "news",
   "article",
   "contest",
+  "event",
   "recommended",
   "saved",
 ] as const;

@@ -30,3 +30,39 @@ export function formatDday(
 
   return { label: diff === 0 ? "오늘 마감" : `D-${diff}`, closed: false };
 }
+
+const kstDayIndex = (date: Date) =>
+  Math.floor((date.getTime() + KST_OFFSET_MS) / DAY_MS);
+
+function formatKstMonthDay(value: string): string {
+  const kst = new Date(new Date(value).getTime() + KST_OFFSET_MS);
+  return [
+    String(kst.getUTCMonth() + 1).padStart(2, "0"),
+    String(kst.getUTCDate()).padStart(2, "0"),
+  ].join(".");
+}
+
+/** 행사 기간을 KST 기준 "MM.DD – MM.DD"로 변환한다. */
+export function formatEventPeriod(start: string, end: string): string {
+  return `${formatKstMonthDay(start)} – ${formatKstMonthDay(end)}`;
+}
+
+/**
+ * 행사 상태 배지: 시작 전이면 D-n, 진행 중이면 "진행중", 끝났으면 "종료".
+ */
+export function formatEventStatus(
+  start: string,
+  end: string,
+  now = new Date(),
+): DdayInfo {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  if (endDate.getTime() < now.getTime()) return { label: "종료", closed: true };
+  if (startDate.getTime() <= now.getTime()) return { label: "진행중", closed: false };
+
+  return {
+    label: `D-${kstDayIndex(startDate) - kstDayIndex(now)}`,
+    closed: false,
+  };
+}

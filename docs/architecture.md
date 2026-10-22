@@ -23,7 +23,7 @@
 ├── apps
 │   └── web
 │       ├── app
-│       │   ├── api/cron/         # ingest, backfill-og (Vercel Cron 진입점)
+│       │   ├── api/cron/         # ingest(+articles/news/contests/events 수동 트리거), backfill-og (Vercel Cron 진입점)
 │       │   ├── bookmarks/        # 저장한 콘텐츠 섹션 탭 (홈에서 사용)
 │       │   ├── profile/          # 마이페이지 (로그인 필수)
 │       │   ├── layout.tsx
@@ -197,15 +197,15 @@ GitHub OAuth 관리자 로그인
 - `content_tags`: 콘텐츠와 태그 연결
 - `bookmarks`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
 - `likes`: user_id(uuid) + content_id(bigint) 복합 PK, created_at, RLS
-- `sources`: RSS/API 소스 이름, URL, 소스 타입(`rss`/`atom`/`wevity`/`contestkorea`), 기본 언어, 기본 카테고리, 섹션, 활성 상태, 마지막 수집 시각 (아티클 10개 + 뉴스 5개 + 공모전 1개, 위비티 2개는 비활성)
+- `sources`: RSS/API 소스 이름, URL, 소스 타입(`rss`/`atom`/`wevity`/`contestkorea`/`coex`), 기본 언어, 기본 카테고리, 섹션, 활성 상태, 마지막 수집 시각 (아티클 10개 + 뉴스 5개 + 공모전 1개 + 행사 1개, 위비티 2개는 비활성)
 - `ingestion_runs`: 수집 시작/종료 시각, 상태, 처리/생성/스킵/실패 건수, 오류 메시지
 - `profiles`: Supabase 사용자 id, 이메일, nickname(최대 20자), role('viewer'|'admin'), created_at
 
 ## 분류 원칙
 
 - 공개 UI의 상위 분류는 URL query의 `section`이다.
-- UI-first 단계의 섹션은 `news`, `article`, `contest`를 사용한다.
-- DB의 `content_items.section` 값으로 `news`/`article`/`contest` 피드를 구분한다.
+- UI-first 단계의 섹션은 `news`, `article`, `contest`, `event`를 사용한다.
+- DB의 `content_items.section` 값으로 `news`/`article`/`contest`/`event` 피드를 구분한다.
 - 기존 콘텐츠와 기존 RSS 소스는 `section='article'`이며, 뉴스 RSS 소스는 `section='news'`로 저장한다.
 - `contest`는 콘테스트코리아 `학문•과학•IT`(Txt_bcode=030310001) 목록을 스크래핑해 수집하며, 제목 키워드로 개발 관련 공모전만 남긴다. 항목 URL은 `str_no` 기준으로 정규화한다.
 - 콘테스트코리아 목록에는 접수 종료일의 연도가 없어 D-day 배지로 `deadline`을 만든다. D-day가 없는 항목(접수예정·심사중·마감)은 `deadline=null`(상시)로 잘못 노출되므로 수집하지 않는다.
@@ -213,6 +213,9 @@ GitHub OAuth 관리자 로그인
 - 위비티는 Cloudflare가 데이터센터 IP를 HTTP 403으로 차단해 Vercel 크론에서 수집이 불가능하다(로컬 가정용 IP는 200). 소스는 `is_active=false`로 비활성화했고, 차단이 풀리면 되돌릴 수 있도록 어댑터와 기존 콘텐츠는 유지한다.
 - 공모전의 안정적인 식별자는 `url`이 아니라 slug다. 이미 있는 공모전은 slug로 찾아 `url`/`thumbnail`/`deadline`을 update하고, 신규만 insert한다.
 - 공모전 목록 페이지 수는 `CONTESTKOREA_MAX_LIST_PAGES`(기본 2), 소스당 상한은 `INGEST_CONTEST_MAX_ITEMS`(기본 60)로 조절한다. 과거 등록분 백필 시 늘려 실행한다.
+- `event`(행사)는 코엑스 전체 일정 목록(`/event/full-schedules/`, 서버 렌더링 HTML)을 오늘~+90일 범위로 스크래핑한다(최대 `COEX_MAX_LIST_PAGES`, 기본 8페이지). 코엑스 분야 필터는 부정확해 쓰지 않고 제목 키워드(포함/제외)로 개발 행사만 남긴다.
+- 행사는 새 컬럼 없이 `published_at`=시작일(KST 00:00), `deadline`=종료일(KST 23:59:59.999), `description`=장소로 저장한다. 주제 카테고리는 연결하지 않고, 공모전처럼 slug(`coex-{wp-slug}`) 기준으로 기존 행을 갱신한다.
+- 행사 피드는 종료되지 않은 항목(`deadline >= now`)만 시작일 오름차순으로 보여주며 정렬/기간 필터를 쓰지 않는다.
 - 공모전 진행 상태(진행중/종료)는 별도 컬럼 없이 `deadline` 기준으로 파생한다 (`deadline` 없음 = 상시 → 진행중).
 - 공모전 유형은 `contest_type`(hackathon/dev-contest/idea-contest/data-competition)으로 분류하며 주제 카테고리는 연결하지 않는다.
 - 기존 `type`은 콘텐츠 표시 방식이나 원본 미디어를 나타내는 보조 필드로 유지한다.
