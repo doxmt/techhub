@@ -2,7 +2,7 @@ import { Eye, ThumbsUp } from "lucide-react";
 import { CONTEST_TYPES } from "@techhub/shared";
 import type { FeedItem } from "@/features/feed/server/service";
 import { cn } from "@/lib/utils";
-import { formatDday, formatEventPeriod, formatEventStatus } from "@/lib/dday";
+import { formatDday } from "@/lib/dday";
 import { ContentActions } from "./content-actions";
 import { ThumbnailImage } from "./thumbnail-image";
 
@@ -30,28 +30,16 @@ export function ContentCard({
 }: Props) {
   const isPreviewEnabled = Boolean(onPreview);
   const isContest = item.section === "contest";
-  const isEvent = item.section === "event" && Boolean(item.deadline);
   const typeLabel = isContest
     ? (CONTEST_TYPES.find((c) => c.slug === item.contestType)?.name ?? "공모전")
-    : item.section === "event"
-      ? "행사"
-      : item.section === "news"
-        ? "뉴스"
-        : item.type === "article"
-          ? "아티클"
-          : "영상";
-  const showTopicBadges =
-    item.section !== "news" && item.section !== "event" && !isContest;
-  // 행사는 등록일 대신 행사 기간(시작일~종료일)을 보여준다
-  const formattedDate =
-    isEvent && item.deadline
-      ? formatEventPeriod(item.publishedAt, item.deadline)
-      : formatDate(item.publishedAt);
-  const dday = isContest
-    ? formatDday(item.deadline)
-    : isEvent && item.deadline
-      ? formatEventStatus(item.publishedAt, item.deadline)
-      : null;
+    : item.section === "news"
+      ? "뉴스"
+      : item.type === "article"
+        ? "아티클"
+        : "영상";
+  const showTopicBadges = item.section !== "news" && !isContest;
+  const formattedDate = formatDate(item.publishedAt);
+  const dday = isContest ? formatDday(item.deadline) : null;
 
   function openPreview() {
     onPreview?.(item);

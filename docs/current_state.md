@@ -4,30 +4,68 @@ description: 가장 최근 세션의 작업 상태와 다음 할 일
 type: project
 ---
 
-## 마지막 작업 (2026-10-22)
+## 현재 작업 (2026-10-08)
 
-이슈 #62 — 코엑스 개발 행사 섹션 추가 (`feat/62-coex-event-section` → develop squash merge)
+브랜치: `fix/geeknews-ingestion-limit`
 
 ### 완료
 
-- 홈 섹션 탭에 `행사`(`?section=event`) 추가. 종료 전 행사만 시작일 오름차순, 정렬/기간 필터 숨김
-- 코엑스 `/event/full-schedules/` 목록 스크래핑 어댑터 `coex` 추가. 오늘~+90일, 최대 8페이지(`COEX_MAX_LIST_PAGES`), 제목 키워드로 개발 행사만 수집
-- 새 컬럼 없이 `published_at`=시작일, `deadline`=종료일, `description`=장소 재사용 (ADR-011)
-- 카드·미리보기에 행사 기간/장소/`D-n`·`진행중` 배지, 저장됨 탭에 `행사` 하위 탭
-- `/api/cron/ingest/events` 수동 트리거 라우트 (vercel.json 크론은 변경 없음, 기존 `/api/cron/ingest`가 함께 수집)
-- 로컬에서 실제 코엑스 사이트 대상 어댑터 실행: 개발 행사 7건 추출(소프트웨이브, 컴업, 코리아 테크 페스티벌, AIoT, AI 콘텐츠 페스티벌 등)
+- GeekNews 한국어 최신 목록의 최근 24시간 게시량을 사이트 목록 기준으로 재확인: 24개
+- GeekNews만 수집 상한을 30개로 늘리고, 다른 RSS/Atom 소스는 기존 10개를 유지하도록 변경
+- GeekNews 30개·다른 RSS/Atom 소스 10개 상한을 검증하는 회귀 테스트 추가
+- `pnpm --filter @techhub/web test`, `lint`, `typecheck`, `pnpm build` 통과
+
+## 현재 작업 (2026-09-30)
+
+브랜치: `fix/59-feed-filter-navigation-performance`
+이슈 #59 — 메인 피드 카테고리 및 필터 전환 성능 개선
+
+### 완료
+
+- 메인의 섹션·출처·주제·공모전·보기 방식 내부 링크를 Next.js `Link`로 전환해, 필터 변경 시 문서 전체를 다시 불러오지 않고 App Router 내에서 이동하도록 변경
+- 로그인 프로필, 피드, 저장 수 조회를 병렬로 시작해 필터 전환의 서버 대기 시간을 축소
+- 로컬 데스크톱에서 아티클 → Frontend 주제 필터 전환과 URL 상태(`?section=article&categories=fe`) 확인
 - `pnpm lint`, `pnpm test`, `pnpm typecheck`, `pnpm build` 통과
+
+## 마지막 작업 (2026-07-29)
+
+브랜치: `fix/44-공모전수집-북마크페이지네이션`
+이슈 #44 / PR #45 (base: develop) — **CI 확인 후 squash merge 대기 중**
+
+### 완료
+
+**공모전 수집 유실 수정 (핵심)**
+- 원인: `content_items.slug` UNIQUE 제약과 upsert `onConflict: "url"`의 불일치. slug 충돌은 `ON CONFLICT (url)`이 잡지 못해 INSERT 문 전체가 abort되고 해당 소스의 신규 공모전이 통째로 유실됐다
+- slug(`wevity-{ix}`)는 고정인데 `url`은 유동적이라 충돌이 상시 발생 (위비티 두 소스가 같은 ix 공유 + 홈페이지 링크가 나중에 붙음)
+- insert 전 기존 slug 조회 → insert 대상과 갱신 대상 분리
+- 배치 insert 실패 시 행 단위 재시도, 전 행 실패일 때만 소스 실패로 집계
+- 배치 내 slug/url 중복 제거
+- 기존 공모전의 `url`/`thumbnail`/`deadline` 갱신 (이전에는 thumbnail만, NULL일 때만)
+
+**북마크 저장 목록 200개 캡 제거**
+- `getSavedFeed`의 `limit: 200` 제거, 커서 기반 `PAGE_SIZE` 페이지네이션 복귀
+- 섹션 탭을 클라이언트 필터링에서 URL query(`?section=saved&saved=<섹션>`)로 전환
+- `getSavedCounts` 추가 (탭 배지는 DB 집계값)
+- `loadMoreFeed`가 `section='saved'`도 처리
+- `BookmarkTabs`를 client → server component로 전환
+
+**dead code 제거 / 문서 동기화**
+- 상세 페이지를 만들지 않기로 확정 → `getContentBySlugId`, `lib/slug.ts`, 관련 테스트 제거
+- CLAUDE.md, architecture.md, DESIGN.md, roadmap.md 실제 구현과 일치시킴
 
 ### 다음 할 일
 
-- **프로덕션 Supabase에 migration `20261022090000_coex_event_section.sql` 적용** (`supabase db push`). 적용 전에는 수집이 CHECK 제약에 막혀 행사 탭이 비어 있다
-- 적용 후 `/api/cron/ingest/events` 수동 트리거 → `ingestion_runs` 결과 확인
-- 행사 탭을 데스크톱/모바일 viewport에서 직접 확인 (미실시, Definition of Done 미충족 항목)
-- 행사 키워드 오탐/누락 운영 보정, 다른 행사장·플랫폼 확장 여부 결정 (`docs/plans/open-questions.md`)
-- 이전부터 남은 항목: `MAX_ITEMS_PER_SOURCE` 재검토, `backfill.ts` dead code, 관리자 MVP 미착수
+- **PR #45 CI 확인 후 squash merge → 브랜치 삭제 → `git pull origin develop`**
+- **공모전 수정이 실제로 먹는지 프로덕션 확인.** 로컬에 Supabase 자격증명이 없어 `ingestion_runs` 로그를 못 봤다. `vercel login` 후 `vercel env pull`, 또는 배포 후 `/api/cron/ingest` 수동 트리거 → `ingestion_runs.error_message` 확인
+- 북마크 섹션 탭 UI를 데스크톱/모바일 viewport에서 직접 확인 (Definition of Done 미충족 항목)
+- `MAX_ITEMS_PER_SOURCE = 10` + 하루 1회 크론 조합 재검토. dev.to처럼 발행량 많은 소스는 유실 가능
+- `app/api/cron/ingest/{articles,news,contests}` 3개 라우트가 `vercel.json` 크론에서 빠져 있다. 수동 트리거용으로 남길지 정리할지 결정
+- `features/ingestion/server/backfill.ts`는 자기 테스트 외 참조 없음 (기존 dead code, 미삭제)
+- 관리자 MVP(로드맵 6단계) 전체 미착수. `profiles.role`은 DB에만 존재
 
 ### 참고사항
 
-- 코엑스 목록 항목은 hover 블록과 본문 블록에 제목이 중복된다. `<li class='BlogPost-item'>` 단위로 파싱한다
-- 썸네일 없는 항목은 테마 기본 이미지(`/assets/images/bg/bg-hover*.png`)라 null로 두고 OG 폴백에 맡긴다
-- 코엑스 분야 필터(`search_dept=31`, 전기/전자/IT)는 유학박람회가 섞이는 등 부정확해 쓰지 않는다
+- 공모전의 안정적 식별자는 `url`이 아니라 slug(`wevity-{ix}`)다
+- 위비티 두 소스(cidx=20/21)는 같은 ix를 공유하는 항목이 있다 (2026-07-29 실측 2건)
+- 위비티 목록/상세 파싱 자체는 정상 동작 확인됨
+- 워킹트리에 사용자의 Agent Teams 설정 변경 2건(`CLAUDE.md` 일부, `.claude/agents/conductor.md`)이 미커밋 상태로 남아 있다. 이번 작업과 무관해 PR에 포함하지 않았다

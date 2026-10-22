@@ -9,7 +9,6 @@ const SECTION_LABELS: Record<SavedSection, string> = {
   news: "최신뉴스",
   article: "아티클",
   contest: "공모전",
-  event: "행사",
 };
 
 type Props = {

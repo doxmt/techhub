@@ -71,10 +71,6 @@ describe("parseFeedParams", () => {
     expect(result.lang).toBe("en");
   });
 
-  it("유효한 section 'event'를 파싱한다", () => {
-    expect(parseFeedParams({ section: "event" }).section).toBe("event");
-  });
-
   it("유효한 section 'contest'를 파싱한다", () => {
     const result = parseFeedParams({ section: "contest" });
     expect(result.section).toBe("contest");

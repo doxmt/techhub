@@ -122,8 +122,4 @@
 - 이슈 #44 생성, PR #45 생성 (4개 커밋으로 분리)
 
 ## 2026-10-22
-- 코엑스 개발 행사 섹션(`section=event`) 추가 (이슈 #62)
-- 코엑스 전체 일정 목록 스크래핑 어댑터(`coex`) 추가, 제목 키워드로 개발 행사 판별 (실측 7건 추출)
-- migration `20261022090000_coex_event_section.sql`: section/feed_type CHECK 확장, 코엑스 소스 추가
-- 홈 `행사` 탭, 카드·미리보기 행사 기간/장소/D-n 배지, 저장됨 `행사` 하위 탭, `/api/cron/ingest/events` 수동 트리거
-- 계획 `docs/plans/coex-event-section.md`, 가정은 `open-questions.md`에 기록
+- 코엑스 개발 행사 섹션(#62, PR #63) 되돌림 — 개발자 행사는 Dev-Event 페이지에서 직접 보기로 결정 (Dev-Event는 사용 정책상 허가 없이 수집·서비스화 금지)

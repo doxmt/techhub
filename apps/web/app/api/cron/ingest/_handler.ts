@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { runIngestion } from "../../../../features/ingestion/server/service";
 
-type IngestSection = "article" | "news" | "contest" | "event";
+type IngestSection = "article" | "news" | "contest";
 
 export async function handleIngestCron(req: Request, section?: IngestSection) {
   const cronSecret = process.env.CRON_SECRET;
