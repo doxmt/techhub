@@ -4,6 +4,8 @@ export type FeedItem = {
   title?: string;
   link?: string;
   pubDate?: string;
+  // Atom <author><name>
+  author?: string;
   description?: string;
   // rss-parser default: <description> → content + contentSnippet
   content?: string;

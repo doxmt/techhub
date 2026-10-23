@@ -112,6 +112,7 @@
 - 수집 소스는 `sources` 테이블에서 관리한다.
 - 수집 실행 결과는 `ingestion_runs`에 기록한다.
 - 중복 콘텐츠는 `content_items.url` 기준으로 방지한다.
+- GeekNews는 AI 봇 `neo`(GN⁺)가 작성한 글을 수집하지 않고 사람이 올린 글만 수집한다(상한 30개). 판정은 Atom 작성자 이름 비교만 사용한다.
 - 중복 URL 때문에 수집 전체가 실패하지 않도록 upsert 또는 conflict ignore 방식을 사용한다.
 - `content_items.slug`에도 UNIQUE 제약이 있는데 upsert의 `onConflict`는 컬럼 하나만 지정할 수 있다. slug 충돌은 `ON CONFLICT (url)`이 잡지 못하고 INSERT 문 전체를 abort시키므로, insert 전에 기존 slug를 조회해 insert 대상과 갱신 대상을 나눈다.
 - 그래도 배치 insert가 실패하면 행 단위로 재시도해 문제 행 하나가 소스 전체를 죽이지 않게 한다.
