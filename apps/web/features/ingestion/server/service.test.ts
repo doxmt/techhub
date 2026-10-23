@@ -171,6 +171,16 @@ const ACTIVE_SOURCES = [
 ];
 
 const SINGLE_SOURCE = [ACTIVE_SOURCES[0]];
+const GEEKNEWS_SOURCE = [
+  {
+    id: "src-geeknews",
+    name: "GeekNews",
+    feed_url: "https://news.hada.io/rss/news",
+    feed_type: "atom",
+    default_language: "ko",
+    is_active: true,
+  },
+];
 
 // ---------------------------------------------------------------------------
 // runIngestion — 신규 URL 처리
@@ -528,15 +538,15 @@ describe("runIngestion — ingestion_runs 기록", () => {
 });
 
 // ---------------------------------------------------------------------------
-// runIngestion — 소스당 최대 30건 상한
+// runIngestion — 소스별 수집 상한
 // ---------------------------------------------------------------------------
 
-describe("runIngestion — 소스당 30건 상한", () => {
+describe("runIngestion — 소스별 수집 상한", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("31건 피드에서 최대 30건만 처리한다", async () => {
+  it("GeekNews는 31건 피드에서 최대 30건을 처리한다", async () => {
     const items = Array.from(
       { length: 31 },
       (_, i) =>
@@ -552,15 +562,62 @@ describe("runIngestion — 소스당 30건 상한", () => {
 
     (createAdminClient as ReturnType<typeof vi.fn>).mockReturnValue(
       makeAdminClientMock({
-        sources: SINGLE_SOURCE,
+        sources: GEEKNEWS_SOURCE,
         insertResults: [{ data: Array.from({ length: 30 }, (_, i) => ({ id: i + 1 })), error: null, count: 30 }],
       }),
     );
 
     const result = await runIngestion();
 
-    // processed는 최대 30이어야 한다
-    expect(result.processed).toBeLessThanOrEqual(30);
+    expect(result.processed).toBe(30);
+  });
+
+  it("GeekNews는 neo 작성 항목을 제외하고 사람 글만 처리한다", async () => {
+    const entry = (i: number, author: string) =>
+      `<entry><title>Item ${i}</title><link href="https://news.hada.io/topic?id=${i}"/><published>${new Date(Date.now() - 60 * 60 * 1000).toISOString()}</published><author><name>${author}</name></author></entry>`;
+    const neoEntries = Array.from({ length: 10 }, (_, i) => entry(i, "neo"));
+    const humanEntries = Array.from({ length: 25 }, (_, i) => entry(100 + i, "xguru"));
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${[...neoEntries, ...humanEntries].join("")}</feed>`,
+    }));
+
+    (createAdminClient as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminClientMock({
+        sources: GEEKNEWS_SOURCE,
+        insertResults: [{ data: Array.from({ length: 25 }, (_, i) => ({ id: i + 1 })), error: null, count: 25 }],
+      }),
+    );
+
+    const result = await runIngestion();
+
+    expect(result.processed).toBe(25);
+  });
+
+  it("다른 RSS 소스는 기존 10건 상한을 유지한다", async () => {
+    const items = Array.from(
+      { length: 11 },
+      (_, i) =>
+        `<item><title>Item ${i}</title><link>https://tech.kakao.com/item-${i}/</link><pubDate>${RECENT_DATE}</pubDate></item>`,
+    ).join("");
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => `<?xml version="1.0"?><rss version="2.0"><channel>${items}</channel></rss>`,
+    }));
+
+    (createAdminClient as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeAdminClientMock({
+        sources: SINGLE_SOURCE,
+        insertResults: [{ data: Array.from({ length: 10 }, (_, i) => ({ id: i + 1 })), error: null, count: 10 }],
+      }),
+    );
+
+    const result = await runIngestion();
+
+    expect(result.processed).toBe(10);
   });
 });
 

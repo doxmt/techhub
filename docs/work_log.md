@@ -120,3 +120,12 @@
 - 상세 페이지 미구현 확정 → `getContentBySlugId`, `lib/slug.ts` 및 관련 테스트 제거
 - 문서 동기화: CLAUDE.md, architecture.md, DESIGN.md, roadmap.md, current_state.md
 - 이슈 #44 생성, PR #45 생성 (4개 커밋으로 분리)
+
+## 2026-10-22
+- 코엑스 개발 행사 섹션(#62, PR #63) 되돌림 — 개발자 행사는 Dev-Event 페이지에서 직접 보기로 결정 (Dev-Event는 사용 정책상 허가 없이 수집·서비스화 금지)
+
+## 2026-10-23
+- 운영 DB 확인: GeekNews가 매일 10개씩만 저장됨 — 운영(main)에 #61(상한 30)이 미반영
+- GeekNews 일주일 게시량 실측: 하루 42~67개 중 AI 봇 `neo`(GN⁺) 31~43개, 사람 7~24개
+- GeekNews 수집에서 `neo` 작성 글 제외, 사람 글만 상한 30개까지 수집 (#66)
+- 코엑스 개발 행사 섹션 revert PR #65 develop 머지

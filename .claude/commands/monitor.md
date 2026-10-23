@@ -1,16 +1,15 @@
 ---
 description: 에이전트 로그 pane을 오른쪽에 띄운다.
 argument-hint: ""
-allowed-tools: Bash(mkdir:*), Bash(mkfifo:*), Bash(grep:*), Bash(head:*), Bash(cmux:*)
+allowed-tools: Bash(mkdir:*), Bash(touch:*), Bash(grep:*), Bash(head:*), Bash(cmux:*)
 ---
 
 에이전트 로그 pane을 엽니다.
 
 ```bash
 mkdir -p .claude/logs
-PIPE_PATH="$(pwd)/.claude/logs/agents.pipe"
-[ -p "$PIPE_PATH" ] || mkfifo "$PIPE_PATH"
-LOG_PATH="$PIPE_PATH"
+LOG_PATH="$(pwd)/.claude/logs/agents.log"
+touch "$LOG_PATH"
 
 # env var 없을 경우 cmux identify로 폴백
 if [ -z "${CMUX_SURFACE_ID:-}" ]; then

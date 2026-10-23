@@ -7,7 +7,9 @@ import { fetchOgMeta } from "./og-scraper";
 const FETCH_TIMEOUT_MS = 10_000;
 // 공모전은 목록 여러 페이지 + 항목별 상세 fetch가 필요해 타임아웃을 따로 둔다
 const CONTEST_FETCH_TIMEOUT_MS = 45_000;
-const MAX_ITEMS_PER_SOURCE = 10;
+const DEFAULT_MAX_ITEMS_PER_SOURCE = 10;
+// GeekNews 한국어 최신 목록은 하루 20개를 넘는 경우가 있어 별도 상한을 둔다.
+const GEEKNEWS_MAX_ITEMS_PER_SOURCE = 30;
 // 공모전 목록은 페이지당 16개 안팎 × 3페이지라 상한을 따로 둔다
 const DEFAULT_MAX_CONTEST_ITEMS_PER_SOURCE = 60;
 
@@ -18,6 +20,14 @@ function maxContestItems(): number {
     ? parsed
     : DEFAULT_MAX_CONTEST_ITEMS_PER_SOURCE;
 }
+
+function maxItemsForSource(source: IngestionSource): number {
+  if (source.section === "contest") return maxContestItems();
+  return source.name === "GeekNews"
+    ? GEEKNEWS_MAX_ITEMS_PER_SOURCE
+    : DEFAULT_MAX_ITEMS_PER_SOURCE;
+}
+
 const SOURCE_CONCURRENCY = 5;
 
 type IngestionSection = "article" | "news" | "contest";
@@ -200,10 +210,7 @@ async function ingestSource(
       clearTimeout(timeoutId);
     }
 
-    const capped = allPayloads.slice(
-      0,
-      source.section === "contest" ? maxContestItems() : MAX_ITEMS_PER_SOURCE,
-    );
+    const capped = allPayloads.slice(0, maxItemsForSource(source));
 
     // 썸네일 없는 항목: OG 이미지 병렬 폴백
     // 위비티 URL은 OG 메타가 사이트 공통 이미지라 제외한다 (원문 홈페이지 URL은 폴백 허용)

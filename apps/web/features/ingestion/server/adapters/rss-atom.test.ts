@@ -61,4 +61,45 @@ describe("fetchRssAtom", () => {
     expect(result.length).toBe(1);
     expect(result[0].title).toBe("링크있음");
   });
+
+  describe("GeekNews neo 작성자 제외", () => {
+    const GEEKNEWS = {
+      ...SOURCE,
+      name: "GeekNews",
+      feed_url: "https://news.hada.io/rss/news",
+      feed_type: "atom" as const,
+    };
+    const RECENT_ISO = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+    const entry = (n: number, author: string) => `<entry>
+      <title>Entry ${n}</title>
+      <link href="https://news.hada.io/topic?id=${n}"/>
+      <published>${RECENT_ISO}</published>
+      <updated>${RECENT_ISO}</updated>
+      <author><name>${author}</name></author>
+      <content type="html">본문 ${n}</content>
+    </entry>`;
+
+    const atom = (entries: string[]) =>
+      `<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom">${entries.join("")}</feed>`;
+
+    const stubFeed = (xml: string) =>
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, text: async () => xml }));
+
+    it("GeekNews 피드에서 neo 작성 항목은 제외하고 나머지는 유지한다", async () => {
+      stubFeed(atom([entry(1, "neo"), entry(2, "xguru"), entry(3, " NEO "), entry(4, "ironman")]));
+
+      const result = await fetchRssAtom(GEEKNEWS, new AbortController().signal);
+
+      expect(result.map((r) => r.title)).toEqual(["Entry 2", "Entry 4"]);
+    });
+
+    it("GeekNews가 아닌 소스는 neo 작성자라도 제외하지 않는다", async () => {
+      stubFeed(atom([entry(1, "neo"), entry(2, "xguru")]));
+
+      const result = await fetchRssAtom(SOURCE, new AbortController().signal);
+
+      expect(result.length).toBe(2);
+    });
+  });
 });
