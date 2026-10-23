@@ -140,7 +140,7 @@ describe("getSavedFeed", () => {
 describe("getSavedCounts", () => {
   it("userId가 null이면 모두 0을 반환한다", async () => {
     const result = await getSavedCounts(null);
-    expect(result).toEqual({ all: 0, news: 0, article: 0, contest: 0, event: 0 });
+    expect(result).toEqual({ all: 0, news: 0, article: 0, contest: 0 });
   });
 
   it("섹션별 집계 결과를 반환한다", async () => {
@@ -149,17 +149,16 @@ describe("getSavedCounts", () => {
       { count: 3, error: null },
       { count: 5, error: null },
       { count: 2, error: null },
-      { count: 1, error: null },
     );
     vi.mocked(createClient).mockResolvedValue(client as never);
     const result = await getSavedCounts("user-1");
-    expect(result).toEqual({ all: 10, news: 3, article: 5, contest: 2, event: 1 });
+    expect(result).toEqual({ all: 10, news: 3, article: 5, contest: 2 });
   });
 
   it("집계 실패 시 0으로 처리한다", async () => {
     const { client } = makeSupabaseMock({ count: null, error: { message: "boom" } });
     vi.mocked(createClient).mockResolvedValue(client as never);
     const result = await getSavedCounts("user-1");
-    expect(result).toEqual({ all: 0, news: 0, article: 0, contest: 0, event: 0 });
+    expect(result).toEqual({ all: 0, news: 0, article: 0, contest: 0 });
   });
 });

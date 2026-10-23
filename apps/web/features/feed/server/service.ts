@@ -7,7 +7,7 @@ import type {
   FeedSection,
 } from "@techhub/shared";
 
-type DbFeedSection = Extract<FeedSection, "article" | "news" | "contest" | "event">;
+type DbFeedSection = Extract<FeedSection, "article" | "news" | "contest">;
 
 export type FeedItem = {
   id: string;
@@ -91,9 +91,7 @@ function mapToFeedItem(row: ContentRow): FeedItem {
     source: row.source ?? null,
     type: row.type as ContentType,
     section:
-      row.section === "news" ||
-      row.section === "contest" ||
-      row.section === "event"
+      row.section === "news" || row.section === "contest"
         ? row.section
         : "article",
     language: row.language ?? "ko",
@@ -128,10 +126,8 @@ export async function getFeed(
     : `content_categories(categories(name, slug)),
       content_tags(tags(name))`;
 
-  // 행사는 곧 열리는 순(시작일 오름차순)으로 고정하고 정렬/기간 필터는 쓰지 않는다
-  const isEvent = filters.section === "event";
-  const sort = isEvent ? "oldest" : (filters.sort ?? "latest");
-  const period = isEvent ? "all" : (filters.period ?? "all");
+  const sort = filters.sort ?? "latest";
+  const period = filters.period ?? "all";
 
   let query = supabase
     .from("content_items")
@@ -200,15 +196,9 @@ export async function getFeed(
   if (
     filters.section === "article" ||
     filters.section === "news" ||
-    filters.section === "contest" ||
-    filters.section === "event"
+    filters.section === "contest"
   ) {
     query = query.eq("section", filters.section);
-  }
-
-  // 행사는 종료되지 않은 것만 보여준다 (종료일 deadline 기준)
-  if (isEvent) {
-    query = query.gte("deadline", new Date().toISOString());
   }
 
   // 공모전 진행 상태: deadline 기준 파생 (deadline 없음 = 상시 → 진행중)

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ArrowUpRight, Bookmark, Eye, ThumbsUp, X } from "lucide-react";
 import { CONTEST_TYPES } from "@techhub/shared";
-import { formatDday, formatEventPeriod, formatEventStatus } from "@/lib/dday";
+import { formatDday } from "@/lib/dday";
 import { ContentCard } from "./content-card";
 import { ThumbnailImage } from "./thumbnail-image";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -187,23 +187,15 @@ function ContentPreviewModal({
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [, startTransition] = useTransition();
   const isContest = item.section === "contest";
-  const isEvent = item.section === "event" && Boolean(item.deadline);
   const typeLabel = isContest
     ? (CONTEST_TYPES.find((c) => c.slug === item.contestType)?.name ?? "공모전")
-    : item.section === "event"
-      ? "행사"
-      : item.section === "news"
-        ? "뉴스"
-        : item.type === "article"
-          ? "아티클"
-          : "영상";
-  const showTopicBadges =
-    item.section !== "news" && item.section !== "event" && !isContest;
-  const dday = isContest
-    ? formatDday(item.deadline)
-    : isEvent && item.deadline
-      ? formatEventStatus(item.publishedAt, item.deadline)
-      : null;
+    : item.section === "news"
+      ? "뉴스"
+      : item.type === "article"
+        ? "아티클"
+        : "영상";
+  const showTopicBadges = item.section !== "news" && !isContest;
+  const dday = isContest ? formatDday(item.deadline) : null;
 
   function handleBookmarkClick() {
     if (!isLoggedIn) {
@@ -338,11 +330,7 @@ function ContentPreviewModal({
           )}
 
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-neutral-500">
-            <span>
-              {isEvent && item.deadline
-                ? formatEventPeriod(item.publishedAt, item.deadline)
-                : formatDate(item.publishedAt)}
-            </span>
+            <span>{formatDate(item.publishedAt)}</span>
             <span className="inline-flex items-center gap-1">
               <Eye className="size-3" aria-hidden="true" />{item.viewCount}
             </span>

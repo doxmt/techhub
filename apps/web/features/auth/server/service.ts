@@ -56,7 +56,7 @@ function mapBookmarkRowToFeedItem(row: BookmarkRow): FeedItem | null {
   };
 }
 
-export const SAVED_SECTIONS = ["all", "news", "article", "contest", "event"] as const;
+export const SAVED_SECTIONS = ["all", "news", "article", "contest"] as const;
 export type SavedSection = (typeof SAVED_SECTIONS)[number];
 
 export async function getSavedFeed({
@@ -122,7 +122,7 @@ export async function getSavedFeed({
 export async function getSavedCounts(
   userId: string | null,
 ): Promise<Record<SavedSection, number>> {
-  const empty = { all: 0, news: 0, article: 0, contest: 0, event: 0 };
+  const empty = { all: 0, news: 0, article: 0, contest: 0 };
   if (!userId) return empty;
 
   const supabase = await createClient();
@@ -139,9 +139,9 @@ export async function getSavedCounts(
     return error ? 0 : (count ?? 0);
   };
 
-  const [all, news, article, contest, event] = await Promise.all(
+  const [all, news, article, contest] = await Promise.all(
     SAVED_SECTIONS.map(countFor),
   );
 
-  return { all: all!, news: news!, article: article!, contest: contest!, event: event! };
+  return { all: all!, news: news!, article: article!, contest: contest! };
 }

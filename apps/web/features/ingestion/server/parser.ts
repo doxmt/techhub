@@ -25,16 +25,16 @@ export type IngestionSource = {
   id: string | number;
   name: string;
   feed_url: string;
-  feed_type: "rss" | "atom" | "wevity" | "contestkorea" | "coex";
+  feed_type: "rss" | "atom" | "wevity" | "contestkorea";
   default_language: "ko" | "en";
-  section?: "article" | "news" | "contest" | "event";
+  section?: "article" | "news" | "contest";
 };
 
 export type ContentItemInsert = {
   url: string;
   slug: string;
   type: "article";
-  section: "article" | "news" | "contest" | "event";
+  section: "article" | "news" | "contest";
   title: string | null;
   description: string | null;
   thumbnail: string | null;
@@ -42,7 +42,7 @@ export type ContentItemInsert = {
   language: "ko" | "en";
   status: "published";
   published_at: string;
-  // 공모전: 접수 마감일 (NULL이면 상시) / 행사: 종료일
+  // 공모전 전용: 접수 마감일 (NULL이면 상시)
   deadline?: string | null;
   // 공모전 전용: 유형 slug
   contest_type?: string | null;

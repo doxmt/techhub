@@ -22,9 +22,7 @@ function maxContestItems(): number {
 }
 
 function maxItemsForSource(source: IngestionSource): number {
-  if (source.section === "contest" || source.section === "event") {
-    return maxContestItems();
-  }
+  if (source.section === "contest") return maxContestItems();
   return source.name === "GeekNews"
     ? GEEKNEWS_MAX_ITEMS_PER_SOURCE
     : DEFAULT_MAX_ITEMS_PER_SOURCE;
@@ -32,7 +30,7 @@ function maxItemsForSource(source: IngestionSource): number {
 
 const SOURCE_CONCURRENCY = 5;
 
-type IngestionSection = "article" | "news" | "contest" | "event";
+type IngestionSection = "article" | "news" | "contest";
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type IngestionResult = {
@@ -202,9 +200,7 @@ async function ingestSource(
     const controller = new AbortController();
     const timeoutId = setTimeout(
       () => controller.abort(),
-      source.section === "contest" || source.section === "event"
-        ? CONTEST_FETCH_TIMEOUT_MS
-        : FETCH_TIMEOUT_MS,
+      source.section === "contest" ? CONTEST_FETCH_TIMEOUT_MS : FETCH_TIMEOUT_MS,
     );
 
     let allPayloads: Awaited<ReturnType<FeedAdapter>>;
@@ -279,8 +275,8 @@ async function ingestSource(
         .flatMap((item) => {
           const payload = item.url ? urlToPayload.get(item.url) : undefined;
           if (!payload) return [];
-          // 공모전은 주제 카테고리 대신 contest_type으로, 행사는 분류 없이 둔다
-          if (payload.section === "contest" || payload.section === "event") return [];
+          // 공모전은 주제 카테고리 대신 contest_type으로 분류한다
+          if (payload.section === "contest") return [];
           const slugs = classifyCategories({
             title: payload.title ?? "",
             description: payload.description,
@@ -441,7 +437,7 @@ async function refreshContests(
   existingBySlug: Map<string, ExistingRow>,
 ) {
   for (const payload of payloads) {
-    if (payload.section !== "contest" && payload.section !== "event") continue;
+    if (payload.section !== "contest") continue;
 
     const existing = existingBySlug.get(payload.slug);
     if (!existing) continue;
