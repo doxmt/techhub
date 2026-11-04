@@ -13,17 +13,18 @@ type: project
 - 운영 사이트 `https://techhub-lyart.vercel.app`를 Neon으로 전환. 공개 뉴스·아티클·공모전·검색, 운영 환경 회원가입·로그인·마이페이지·저장 피드, 로컬 수집 작업을 확인했다.
 - 계정별 테이블은 제한된 `techhub_app` 역할과 RLS 정책으로 보호한다. 임시 사용자와 임시 인증 해시 파일은 테스트 후 삭제했다.
 - 전체 테스트 388개, 린트, 타입 검사, 빌드 통과. Neon DB 크기 약 120 MB.
+- `feat/neon-migration` 브랜치의 Neon 이전 코드를 원격 저장소에 푸시했다. Supabase의 TechHub 프로젝트(`yrsjenpwlqtbrqtdwven`)는 Neon 운영 및 데이터 확인 후 영구 삭제했다.
 
 ### 다음 할 일
 
-- 기존 Supabase 프로젝트는 롤백을 위해 남겨 두었다. 차곡차곡 프로젝트의 무료 슬롯을 확보하려면 TechHub의 Supabase 프로젝트 삭제 여부를 최종 결정해야 한다.
 - 기존 로그인 세션은 인증 공급자 변경으로 다시 로그인해야 한다. 계정의 비밀번호는 유지된다.
 - `apps/web/scripts/backfill-content.mjs`와 기존 Supabase fallback 코드는 이전 관리용으로 남아 있다. 운영 경로는 `DATABASE_URL`을 사용해 Neon으로 동작한다.
+- 배포 환경의 예약 수집은 다음 실행 후 결과를 확인한다.
 
 ### 재현 및 운영
 
 - Neon 스키마: `neon/migrations/0001_initial.sql`부터 `0004_rls.sql`까지.
-- 공개 데이터 재동기화: `cd apps/web && node scripts/migrate-to-neon.mjs --apply` (기존 Supabase 접속 정보가 있을 때만).
+- 공개 데이터 이전 스크립트: `apps/web/scripts/migrate-to-neon.mjs`. 원본 Supabase 프로젝트 삭제로 해당 프로젝트에서 재동기화할 수 없다.
 - 신규 계정 및 RLS 확인: `apps/web/scripts/smoke-neon-auth.mjs`, `verify-neon-rls.mjs`.
 
 ---
