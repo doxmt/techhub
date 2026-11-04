@@ -4,6 +4,30 @@ description: 가장 최근 세션의 작업 상태와 다음 할 일
 type: project
 ---
 
+## 마지막 작업 (2026-11-04): TechHub Neon 이전
+
+### 완료
+
+- Vercel 관리형 Neon 무료 프로젝트 `techhub-db` 생성 및 TechHub Preview/Production 연결.
+- Supabase의 콘텐츠, 카테고리, 소스, 수집 기록, 계정별 북마크·좋아요를 Neon으로 복사. 기존 사용자 UUID 3개와 bcrypt 비밀번호 해시도 Better Auth로 이전해 기존 비밀번호를 유지한다.
+- 운영 사이트 `https://techhub-lyart.vercel.app`를 Neon으로 전환. 공개 뉴스·아티클·공모전·검색, 운영 환경 회원가입·로그인·마이페이지·저장 피드, 로컬 수집 작업을 확인했다.
+- 계정별 테이블은 제한된 `techhub_app` 역할과 RLS 정책으로 보호한다. 임시 사용자와 임시 인증 해시 파일은 테스트 후 삭제했다.
+- 전체 테스트 388개, 린트, 타입 검사, 빌드 통과. Neon DB 크기 약 120 MB.
+
+### 다음 할 일
+
+- 기존 Supabase 프로젝트는 롤백을 위해 남겨 두었다. 차곡차곡 프로젝트의 무료 슬롯을 확보하려면 TechHub의 Supabase 프로젝트 삭제 여부를 최종 결정해야 한다.
+- 기존 로그인 세션은 인증 공급자 변경으로 다시 로그인해야 한다. 계정의 비밀번호는 유지된다.
+- `apps/web/scripts/backfill-content.mjs`와 기존 Supabase fallback 코드는 이전 관리용으로 남아 있다. 운영 경로는 `DATABASE_URL`을 사용해 Neon으로 동작한다.
+
+### 재현 및 운영
+
+- Neon 스키마: `neon/migrations/0001_initial.sql`부터 `0004_rls.sql`까지.
+- 공개 데이터 재동기화: `cd apps/web && node scripts/migrate-to-neon.mjs --apply` (기존 Supabase 접속 정보가 있을 때만).
+- 신규 계정 및 RLS 확인: `apps/web/scripts/smoke-neon-auth.mjs`, `verify-neon-rls.mjs`.
+
+---
+
 ## 마지막 작업 (2026-10-23)
 
 이슈 #66 — GeekNews AI 봇(neo) 글 제외 수집 (develop 머지)

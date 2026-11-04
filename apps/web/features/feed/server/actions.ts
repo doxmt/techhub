@@ -18,6 +18,8 @@ import {
   NEWS_SOURCES,
 } from "@techhub/shared";
 import { createClient } from "../../../lib/supabase/server";
+import { getCurrentUser } from "../../../lib/current-user";
+import { query } from "../../../lib/db";
 import { getSavedFeed, SAVED_SECTIONS } from "../../auth/server/service";
 import type { SavedSection } from "../../auth/server/service";
 
@@ -51,9 +53,7 @@ export async function loadMoreFeed(input: {
   }
 
   if (section === "saved") {
-    const supabase = await createClient();
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    const userId = (await getCurrentUser())?.id;
     if (!userId) return { items: [], nextCursor: null };
 
     const saved =
@@ -115,14 +115,18 @@ export async function loadMoreFeed(input: {
     ctype,
   };
 
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData?.user?.id;
+  const userId = (await getCurrentUser())?.id;
 
   return getFeed(filters, input.cursor, userId);
 }
 
 export async function incrementViewCount(contentId: number): Promise<void> {
+  if (process.env.DATABASE_URL) {
+    if (Number.isSafeInteger(contentId) && contentId > 0) {
+      await query("update content_items set view_count = view_count + 1 where id = $1 and status = 'published'", [contentId]);
+    }
+    return;
+  }
   const supabase = await createClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase.rpc as any)("increment_view_count", { p_content_id: contentId });

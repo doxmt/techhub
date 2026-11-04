@@ -1,5 +1,6 @@
 import { createClient } from "../../../lib/supabase/server";
 import { encodeCursor, decodeCursor } from "../../../lib/cursor";
+import { getNeonFeed } from "./neon-service";
 import type {
   ContentType,
   ContestStatus,
@@ -117,6 +118,7 @@ export async function getFeed(
   cursor?: string,
   userId?: string,
 ): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
+  if (process.env.DATABASE_URL) return getNeonFeed(filters, cursor, userId);
   const supabase = await createClient();
   const hasCategories = filters.categories && filters.categories.length > 0;
   const relationSelect = hasCategories

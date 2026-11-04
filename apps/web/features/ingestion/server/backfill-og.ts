@@ -1,5 +1,6 @@
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { fetchOgMeta } from "./og-scraper";
+import { query } from "../../../lib/db";
 
 const BATCH_SIZE = 20;
 // Hobby 플랜 함수 제한(60s) 안에 끝나도록 OG fetch를 제한된 동시성으로 처리한다
@@ -12,6 +13,32 @@ export type OgBackfillResult = {
 };
 
 export async function runOgBackfill(): Promise<OgBackfillResult> {
+  if (process.env.DATABASE_URL) {
+    const items = await query<{ id: string; url: string; thumbnail: string | null; description: string | null }>(
+      "select id::text, url, thumbnail, description from content_items where thumbnail is null or description is null limit 20",
+    );
+    let next = 0;
+    let updated = 0;
+    let failed = 0;
+    async function worker() {
+      while (next < items.length) {
+        const item = items[next++]!;
+        try {
+          const og = await fetchOgMeta(item.url);
+          if ((!item.thumbnail && og.image) || (!item.description && og.description)) {
+            await query(`update content_items set
+              thumbnail = coalesce(thumbnail, $2),
+              description = coalesce(description, $3), updated_at = now()
+              where id = $1::bigint`,
+            [item.id, og.image ?? null, og.description ?? null]);
+            updated++;
+          }
+        } catch { failed++; }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(5, items.length) }, worker));
+    return { processed: items.length, updated, failed };
+  }
   const adminClient = createAdminClient();
 
   const { data: items, error } = await adminClient

@@ -1,19 +1,26 @@
 import { redirect } from "next/navigation";
 import { ArrowLeft, Bookmark, Code2, Calendar } from "lucide-react";
 import { createClient } from "../../lib/supabase/server";
+import { getCurrentUser } from "../../lib/current-user";
+import { queryAsUser } from "../../lib/db";
 import { getSavedFeed } from "../../features/auth/server/service";
 import { NicknameForm, PasswordForm, DeleteAccountSection } from "../../features/auth/components/profile-client";
 
 export default async function ProfilePage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("nickname, email, created_at")
-    .eq("user_id", user.id)
-    .single();
+  const profile = process.env.DATABASE_URL
+    ? (await queryAsUser<{ nickname: string; email: string; created_at: Date }>(
+        user.id,
+        "select nickname, email, created_at from profiles where user_id = $1::uuid",
+        [user.id],
+      ))[0]
+    : (await (await createClient())
+        .from("profiles")
+        .select("nickname, email, created_at")
+        .eq("user_id", user.id)
+        .single()).data;
 
   const { items: savedItems } = await getSavedFeed({ userId: user.id });
   const recentSaved = savedItems.slice(0, 4);

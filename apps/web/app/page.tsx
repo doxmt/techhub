@@ -31,6 +31,8 @@ import { FeedSortFilter } from "../components/feed/feed-sort-filter";
 import { ThemeToggle } from "../components/theme-toggle";
 import { HeaderUserMenu } from "../features/auth/components/header-user-menu";
 import { createClient } from "../lib/supabase/server";
+import { getCurrentUser } from "../lib/current-user";
+import { queryAsUser } from "../lib/db";
 import { cn } from "../lib/utils";
 
 type Props = {
@@ -55,12 +57,17 @@ export default async function HomePage({ searchParams }: Props) {
       ? params.period
       : "all";
 
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const authUser = userData?.user ?? null;
+  const authUser = await getCurrentUser();
 
   const userProfilePromise = authUser
-    ? supabase
+    ? process.env.DATABASE_URL
+      ? queryAsUser<{ nickname: string; email: string }>(
+          authUser.id, "select nickname, email from profiles where user_id = $1::uuid", [authUser.id],
+        ).then((rows) => ({
+          nickname: rows[0]?.nickname ?? authUser.email,
+          email: rows[0]?.email ?? authUser.email,
+        }))
+      : createClient().then((supabase) => supabase
         .from("profiles")
         .select("nickname, email")
         .eq("user_id", authUser.id)
@@ -75,7 +82,7 @@ export default async function HomePage({ searchParams }: Props) {
                 nickname: authUser.email ?? "",
                 email: authUser.email ?? "",
               },
-        )
+        ))
     : Promise.resolve(null);
 
   const placeholderSections = ["recommended"];

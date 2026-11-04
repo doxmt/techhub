@@ -3,6 +3,7 @@ import { getAdapter, type FeedAdapter } from "./adapters";
 import type { IngestionSource } from "./parser";
 import { classifyCategories } from "./classify";
 import { fetchOgMeta } from "./og-scraper";
+import { runNeonIngestion } from "./neon-ingestion";
 
 const FETCH_TIMEOUT_MS = 10_000;
 // 공모전은 목록 여러 페이지 + 항목별 상세 fetch가 필요해 타임아웃을 따로 둔다
@@ -78,6 +79,7 @@ async function mapWithConcurrency<T, R>(
 export async function runIngestion(
   options: RunIngestionOptions = {},
 ): Promise<IngestionResult> {
+  if (process.env.DATABASE_URL) return runNeonIngestion(options.section);
   const adminClient = createAdminClient();
 
   // 1. 활성 소스 조회

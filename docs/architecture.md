@@ -1,5 +1,15 @@
 # 아키텍처
 
+## 운영 구성 (2026-11-04)
+
+- 웹 앱: Vercel의 Next.js App Router, 서버 컴포넌트, 서버 액션.
+- DB: Vercel 관리형 Neon Postgres. 공개 피드와 수집은 `DATABASE_URL`로 직접 SQL을 실행한다.
+- 인증: Neon DB의 `user`/`account`/`session` 테이블을 사용하는 Better Auth. 기존 Supabase 사용자 UUID와 bcrypt 비밀번호 해시를 유지한다. 관리형 Neon Auth는 사용하지 않는다.
+- 권한: 서버에서 세션을 검사하고, DB 쿼리는 `techhub_app` 역할로 실행한다. `profiles`·`bookmarks`·`likes`는 RLS로 계정별 접근을 제한한다.
+- 스키마: `neon/migrations/0001_initial.sql`부터 `0004_rls.sql`까지. Supabase 코드는 이전 및 롤백을 위해 남아 있으며 운영 경로는 Neon을 사용한다.
+
+## 초기 설계 기록 (Supabase)
+
 ## 기술 스택
 
 - 모노레포: Turborepo + pnpm workspace

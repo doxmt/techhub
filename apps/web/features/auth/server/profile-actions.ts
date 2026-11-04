@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { signUpSchema } from "./schema";
+import { getCurrentUser } from "../../../lib/current-user";
+import { queryAsUser, deleteAuthenticatedUser } from "../../../lib/db";
+import { headers } from "next/headers";
 
 async function safeRevalidatePath(path: string) {
   try {
@@ -21,6 +24,16 @@ export async function updateNickname(
 
   if (!nickname) return { error: "닉네임을 입력해주세요." };
   if (nickname.length > 20) return { error: "닉네임은 20자 이하여야 합니다." };
+
+  if (process.env.DATABASE_URL) {
+    const user = await getCurrentUser();
+    if (!user) return { error: "로그인이 필요합니다." };
+    try {
+      await queryAsUser(user.id, "update profiles set nickname = $1 where user_id = $2::uuid", [nickname, user.id]);
+      await safeRevalidatePath("/profile");
+      return {};
+    } catch { return { error: "닉네임 변경에 실패했습니다." }; }
+  }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -51,6 +64,18 @@ export async function updatePassword(
   if (!parsed.success)
     return { error: parsed.error.issues[0]?.message ?? "비밀번호가 올바르지 않습니다." };
 
+  if (process.env.DATABASE_URL) {
+    if (!await getCurrentUser()) return { error: "로그인이 필요합니다." };
+    try {
+      const { auth } = await import("../../../lib/auth");
+      await auth.api.changePassword({
+        body: { currentPassword, newPassword },
+        headers: await headers(),
+      });
+      return {};
+    } catch { return { error: "현재 비밀번호가 올바르지 않거나 변경에 실패했습니다." }; }
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !user.email) return { error: "로그인이 필요합니다." };
@@ -68,6 +93,16 @@ export async function updatePassword(
 }
 
 export async function deleteAccount(): Promise<{ error?: string } | undefined> {
+  if (process.env.DATABASE_URL) {
+    const user = await getCurrentUser();
+    if (!user) return { error: "로그인이 필요합니다." };
+    try {
+      await deleteAuthenticatedUser(user.id);
+      const { auth } = await import("../../../lib/auth");
+      await auth.api.signOut({ headers: await headers() }).catch(() => {});
+    } catch { return { error: "계정 탈퇴에 실패했습니다." }; }
+    redirect("/");
+  }
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "로그인이 필요합니다." };

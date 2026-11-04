@@ -1,5 +1,7 @@
 import { createClient } from "../../../lib/supabase/server";
 import type { FeedItem } from "../../feed/server/service";
+import { queryAsUser } from "../../../lib/db";
+import { feedSelect, mapNeonFeedItem, type Row as NeonRow } from "../../feed/server/neon-service";
 
 const PAGE_SIZE = 20;
 
@@ -72,6 +74,31 @@ export async function getSavedFeed({
     return { items: [], nextCursor: null };
   }
 
+  if (process.env.DATABASE_URL) {
+    const values: unknown[] = [userId];
+    const where = ["b.user_id = $1::uuid"];
+    if (section !== "all") {
+      values.push(section);
+      where.push(`ci.section = $${values.length}`);
+    }
+    if (cursor) {
+      values.push(cursor);
+      where.push(`b.created_at < $${values.length}::timestamptz`);
+    }
+    const rows = await queryAsUser<NeonRow & { saved_at: Date }>(userId, `
+      select ${feedSelect}, b.created_at as saved_at,
+        true as is_bookmarked,
+        exists(select 1 from likes l where l.content_id = ci.id and l.user_id = b.user_id) as is_liked
+      from bookmarks b join content_items ci on ci.id = b.content_id
+      where ${where.join(" and ")}
+      order by b.created_at desc, ci.id desc limit 21`, values);
+    const page = rows.slice(0, 20);
+    return {
+      items: page.map(mapNeonFeedItem),
+      nextCursor: rows.length > 20 ? page.at(-1)!.saved_at.toISOString() : null,
+    };
+  }
+
   const supabase = await createClient();
 
   // 섹션 필터를 DB에서 걸어야 하므로 inner join으로 조회한다
@@ -124,6 +151,19 @@ export async function getSavedCounts(
 ): Promise<Record<SavedSection, number>> {
   const empty = { all: 0, news: 0, article: 0, contest: 0 };
   if (!userId) return empty;
+
+  if (process.env.DATABASE_URL) {
+    const rows = await queryAsUser<{ section: SavedSection; count: number }>(userId, `
+      select ci.section, count(*)::int as count
+      from bookmarks b join content_items ci on ci.id = b.content_id
+      where b.user_id = $1::uuid group by ci.section`, [userId]);
+    const counts = { ...empty };
+    for (const row of rows) {
+      if (row.section in counts && row.section !== "all") counts[row.section] = row.count;
+      counts.all += row.count;
+    }
+    return counts;
+  }
 
   const supabase = await createClient();
 

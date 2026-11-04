@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -19,12 +20,15 @@
     "@t3-oss/env-nextjs": "latest",
     "@techhub/shared": "workspace:*",
     "@vercel/analytics": "latest",
+    "bcryptjs": "^3.0.3",
+    "better-auth": "^1.4.21",
     "cheerio": "latest",
     "class-variance-authority": "latest",
     "clsx": "latest",
     "lucide-react": "latest",
     "next": "latest",
     "next-themes": "latest",
+    "pg": "^8.23.1",
     "react": "latest",
     "react-dom": "latest",
     "rss-parser": "^3.13.0",
@@ -33,10 +37,12 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
     "@tailwindcss/postcss": "latest",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
     "@types/node": "latest",
+    "@types/pg": "^8.23.1",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "^6.0.2",

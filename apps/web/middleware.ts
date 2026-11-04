@@ -1,7 +1,8 @@
-import { type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "./lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
+  if (process.env.DATABASE_URL) return NextResponse.next({ request });
   return await updateSession(request);
 }
 

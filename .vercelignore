@@ -1,0 +1,7 @@
+.supabase-auth-export.json
+.vercel-cli-auth/
+.pnpm-store/
+.env.neon.local
+.env.neon.vercel.local
+.env.neon.preview.local
+.env.neon.runtime.local
